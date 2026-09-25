@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "editlens_news",
+    "seed": 43,
+    "datetime": "2026-09-22 21:03:47",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9541777777777778,
+        "tpr_at_fpr_0_05": 0.74,
+        "tpr_at_fpr_0_01": 0.5,
+        "aupr": 0.9549410419164943,
+        "f1": 0.8875379939209727,
+        "accuracy": 0.8766666666666667
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "drlXModel_gemini_2_5_flash",
+    "seed": 43,
+    "datetime": "2026-09-06 19:30:35",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6180444444444444,
+        "tpr_at_fpr_0_05": 0.02,
+        "tpr_at_fpr_0_01": 0.006666666666666667,
+        "aupr": 0.5439461477281544,
+        "f1": 0.7153652392947103,
+        "accuracy": 0.6233333333333333
+    }
+}

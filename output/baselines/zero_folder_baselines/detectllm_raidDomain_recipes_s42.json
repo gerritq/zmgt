@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "raidDomain_recipes",
+    "seed": 42,
+    "datetime": "2026-09-21 07:52:17",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.8907999999999999,
+        "tpr_at_fpr_0_05": 0.8533333333333334,
+        "tpr_at_fpr_0_01": 0.84,
+        "aupr": 0.9382939421191516,
+        "f1": 0.9097472924187726,
+        "accuracy": 0.9166666666666666
+    }
+}

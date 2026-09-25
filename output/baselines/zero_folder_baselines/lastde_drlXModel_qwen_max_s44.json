@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "drlXModel_qwen_max",
+    "seed": 44,
+    "datetime": "2026-09-06 14:50:41",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.936,
+        "tpr_at_fpr_0_05": 0.66,
+        "tpr_at_fpr_0_01": 0.36,
+        "aupr": 0.9352492282303759,
+        "f1": 0.8792569659442725,
+        "accuracy": 0.87
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "radar",
+    "dataset": "drlXDomain_seo",
+    "seed": 42,
+    "datetime": "2026-09-04 01:12:56",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.4581333333333333,
+        "tpr_at_fpr_0_05": 0.006666666666666667,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.45980640499768655,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

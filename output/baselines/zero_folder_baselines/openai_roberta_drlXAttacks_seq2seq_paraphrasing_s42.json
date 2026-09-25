@@ -1,0 +1,16 @@
+{
+    "model": "openai_roberta",
+    "dataset": "drlXAttacks_seq2seq_paraphrasing",
+    "seed": 42,
+    "datetime": "2026-09-04 01:22:04",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7380444444444444,
+        "tpr_at_fpr_0_05": 0.42,
+        "tpr_at_fpr_0_01": 0.38666666666666666,
+        "aupr": 0.7776393955095855,
+        "f1": 0.7209302325581395,
+        "accuracy": 0.68
+    }
+}

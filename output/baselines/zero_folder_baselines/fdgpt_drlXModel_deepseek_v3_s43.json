@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "drlXModel_deepseek_v3",
+    "seed": 43,
+    "datetime": "2026-09-06 17:50:02",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5199333333333334,
+        "tpr_at_fpr_0_05": 0.12,
+        "tpr_at_fpr_0_01": 0.03333333333333333,
+        "aupr": 0.5458201856601087,
+        "f1": 0.6681715575620768,
+        "accuracy": 0.51
+    }
+}

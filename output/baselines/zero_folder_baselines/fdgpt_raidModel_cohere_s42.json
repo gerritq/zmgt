@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "raidModel_cohere",
+    "seed": 42,
+    "datetime": "2026-09-21 07:13:47",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.8472444444444446,
+        "tpr_at_fpr_0_05": 0.26666666666666666,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.7906331613891769,
+        "f1": 0.7927927927927928,
+        "accuracy": 0.77
+    }
+}

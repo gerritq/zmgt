@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "editlens_reddit_writing_prompts",
+    "seed": 44,
+    "datetime": "2026-09-22 19:58:23",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 292,
+        "auroc": 0.959488888888889,
+        "tpr_at_fpr_0_05": 0.84,
+        "tpr_at_fpr_0_01": 0.66,
+        "aupr": 0.9634883823671362,
+        "f1": 0.8927335640138409,
+        "accuracy": 0.8966666666666666
+    }
+}

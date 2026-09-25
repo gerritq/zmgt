@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "samplingRepetitionPenalty_1_25",
+    "seed": 42,
+    "datetime": "2026-09-22 18:44:36",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.0014666666666666762,
+        "tpr_at_fpr_0_05": 0.0,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.3093200761643001,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

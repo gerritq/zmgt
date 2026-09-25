@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "drlXModel_gpt_4o",
+    "seed": 43,
+    "datetime": "2026-09-06 19:39:13",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7318222222222223,
+        "tpr_at_fpr_0_05": 0.1,
+        "tpr_at_fpr_0_01": 0.013333333333333334,
+        "aupr": 0.6620112544582761,
+        "f1": 0.7493261455525606,
+        "accuracy": 0.69
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "editlens_google_reviews",
+    "seed": 44,
+    "datetime": "2026-09-22 22:13:46",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7538666666666667,
+        "tpr_at_fpr_0_05": 0.2733333333333333,
+        "tpr_at_fpr_0_01": 0.05333333333333334,
+        "aupr": 0.7558893791260141,
+        "f1": 0.706766917293233,
+        "accuracy": 0.61
+    }
+}

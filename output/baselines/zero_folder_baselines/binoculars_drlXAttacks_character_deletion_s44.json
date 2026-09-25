@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "drlXAttacks_character_deletion",
+    "seed": 44,
+    "datetime": "2026-09-06 12:32:58",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5416444444444445,
+        "tpr_at_fpr_0_05": 0.06666666666666667,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.5293419684145607,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

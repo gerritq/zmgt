@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "raidModel_llama_chat",
+    "seed": 42,
+    "datetime": "2026-09-21 07:23:06",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 299,
+        "auroc": 0.9998222222222223,
+        "tpr_at_fpr_0_05": 1.0,
+        "tpr_at_fpr_0_01": 1.0,
+        "aupr": 0.9998225165562916,
+        "f1": 0.9966777408637874,
+        "accuracy": 0.9966666666666667
+    }
+}

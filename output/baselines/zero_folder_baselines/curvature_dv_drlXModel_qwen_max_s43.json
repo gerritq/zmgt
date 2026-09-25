@@ -1,0 +1,16 @@
+{
+    "model": "curvature_dv",
+    "dataset": "drlXModel_qwen_max",
+    "seed": 43,
+    "datetime": "2026-09-17 14:59:50",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6528444444444444,
+        "tpr_at_fpr_0_05": 0.12666666666666668,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.6358848716458421,
+        "f1": 0.6869158878504673,
+        "accuracy": 0.5533333333333333
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "drlXAttacks_decoder_paraphrasing",
+    "seed": 44,
+    "datetime": "2026-09-06 14:02:45",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5715111111111111,
+        "tpr_at_fpr_0_05": 0.04666666666666667,
+        "tpr_at_fpr_0_01": 0.02666666666666667,
+        "aupr": 0.5459519577639032,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

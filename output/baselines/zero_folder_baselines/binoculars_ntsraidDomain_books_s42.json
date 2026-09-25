@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "ntsraidDomain_books",
+    "seed": 42,
+    "datetime": "2026-09-22 07:29:21",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 500,
+        "auroc": 0.849264,
+        "tpr_at_fpr_0_05": 0.62,
+        "tpr_at_fpr_0_01": 0.46,
+        "aupr": 0.8911218946710401,
+        "f1": 0.8134920634920635,
+        "accuracy": 0.812
+    }
+}

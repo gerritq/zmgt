@@ -1,0 +1,16 @@
+{
+    "model": "openai_roberta",
+    "dataset": "drlXMix_mixed",
+    "seed": 43,
+    "datetime": "2026-09-06 11:09:25",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5917555555555556,
+        "tpr_at_fpr_0_05": 0.04666666666666667,
+        "tpr_at_fpr_0_01": 0.006666666666666667,
+        "aupr": 0.537364654899603,
+        "f1": 0.7014925373134329,
+        "accuracy": 0.6
+    }
+}

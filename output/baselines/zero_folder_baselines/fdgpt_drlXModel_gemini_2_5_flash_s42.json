@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "drlXModel_gemini_2_5_flash",
+    "seed": 42,
+    "datetime": "2026-09-04 00:40:36",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.49242222222222226,
+        "tpr_at_fpr_0_05": 0.14,
+        "tpr_at_fpr_0_01": 0.1,
+        "aupr": 0.5764436833187544,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "likelihood",
+    "dataset": "drlXAttacks_encoder_paraphrasing",
+    "seed": 42,
+    "datetime": "2026-09-03 23:18:15",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.4718666666666667,
+        "tpr_at_fpr_0_05": 0.12666666666666668,
+        "tpr_at_fpr_0_01": 0.02666666666666667,
+        "aupr": 0.5406222602110511,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

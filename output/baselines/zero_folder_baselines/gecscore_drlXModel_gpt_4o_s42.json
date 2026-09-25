@@ -1,0 +1,16 @@
+{
+    "model": "gecscore",
+    "dataset": "drlXModel_gpt_4o",
+    "seed": 42,
+    "datetime": "2026-09-04 06:11:54",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 289,
+        "auroc": 0.6069777777777778,
+        "tpr_at_fpr_0_05": 0.1,
+        "tpr_at_fpr_0_01": 0.02,
+        "aupr": 0.6172796572155812,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

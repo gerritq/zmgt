@@ -1,0 +1,16 @@
+{
+    "model": "entropy",
+    "dataset": "drlXModel_gpt_4o",
+    "seed": 43,
+    "datetime": "2026-09-06 17:12:53",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6545333333333333,
+        "tpr_at_fpr_0_05": 0.04,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.5879927879116855,
+        "f1": 0.715,
+        "accuracy": 0.62
+    }
+}

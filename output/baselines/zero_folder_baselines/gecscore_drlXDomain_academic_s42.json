@@ -1,0 +1,16 @@
+{
+    "model": "gecscore",
+    "dataset": "drlXDomain_academic",
+    "seed": 42,
+    "datetime": "2026-09-04 05:11:00",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 299,
+        "auroc": 0.7043111111111111,
+        "tpr_at_fpr_0_05": 0.07333333333333333,
+        "tpr_at_fpr_0_01": 0.02,
+        "aupr": 0.6814597329805818,
+        "f1": 0.6864864864864865,
+        "accuracy": 0.6133333333333333
+    }
+}

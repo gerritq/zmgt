@@ -1,0 +1,16 @@
+{
+    "model": "entropy",
+    "dataset": "drlXDomain_wiki",
+    "seed": 44,
+    "datetime": "2026-09-06 22:24:25",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6581999999999999,
+        "tpr_at_fpr_0_05": 0.13333333333333333,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.6239876640857386,
+        "f1": 0.6947368421052632,
+        "accuracy": 0.6133333333333333
+    }
+}

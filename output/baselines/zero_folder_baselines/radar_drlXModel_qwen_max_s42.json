@@ -1,0 +1,16 @@
+{
+    "model": "radar",
+    "dataset": "drlXModel_qwen_max",
+    "seed": 42,
+    "datetime": "2026-09-04 01:14:28",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6244888888888889,
+        "tpr_at_fpr_0_05": 0.0,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.519993298102027,
+        "f1": 0.7480106100795756,
+        "accuracy": 0.6833333333333333
+    }
+}

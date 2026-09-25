@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "drlXLang_chinese",
+    "seed": 44,
+    "datetime": "2026-09-08 09:48:05",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6106222222222222,
+        "tpr_at_fpr_0_05": 0.13333333333333333,
+        "tpr_at_fpr_0_01": 0.04,
+        "aupr": 0.6314650088764124,
+        "f1": 0.6742081447963801,
+        "accuracy": 0.52
+    }
+}

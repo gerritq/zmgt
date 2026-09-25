@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "ntsraidDomain_poetry",
+    "seed": 42,
+    "datetime": "2026-09-22 11:14:29",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 500,
+        "auroc": 0.8175359999999999,
+        "tpr_at_fpr_0_05": 0.316,
+        "tpr_at_fpr_0_01": 0.18,
+        "aupr": 0.8210534381883448,
+        "f1": 0.7898832684824902,
+        "accuracy": 0.784
+    }
+}

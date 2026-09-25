@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "drlXModel_qwen_max",
+    "seed": 42,
+    "datetime": "2026-09-04 02:58:08",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.8608000000000001,
+        "tpr_at_fpr_0_05": 0.24,
+        "tpr_at_fpr_0_01": 0.11333333333333333,
+        "aupr": 0.8158773395916381,
+        "f1": 0.8459214501510574,
+        "accuracy": 0.83
+    }
+}

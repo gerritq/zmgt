@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "drlXAttacks_expanding",
+    "seed": 44,
+    "datetime": "2026-09-06 14:10:31",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7522666666666668,
+        "tpr_at_fpr_0_05": 0.05333333333333334,
+        "tpr_at_fpr_0_01": 0.013333333333333334,
+        "aupr": 0.6629079724743707,
+        "f1": 0.7610619469026548,
+        "accuracy": 0.73
+    }
+}

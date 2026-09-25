@@ -1,0 +1,16 @@
+{
+    "model": "curvature_dv",
+    "dataset": "drlXAttacks_character_insertion",
+    "seed": 43,
+    "datetime": "2026-09-17 15:07:29",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.4948888888888889,
+        "tpr_at_fpr_0_05": 0.006666666666666667,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.4831470733476964,
+        "f1": 0.6711409395973155,
+        "accuracy": 0.51
+    }
+}

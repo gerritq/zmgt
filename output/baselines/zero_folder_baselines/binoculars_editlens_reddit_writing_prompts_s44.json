@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "editlens_reddit_writing_prompts",
+    "seed": 44,
+    "datetime": "2026-09-22 20:39:49",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.8666444444444446,
+        "tpr_at_fpr_0_05": 0.62,
+        "tpr_at_fpr_0_01": 0.32666666666666666,
+        "aupr": 0.8876643795786315,
+        "f1": 0.8013937282229965,
+        "accuracy": 0.81
+    }
+}

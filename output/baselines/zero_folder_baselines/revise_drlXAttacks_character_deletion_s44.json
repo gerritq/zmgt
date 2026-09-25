@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "drlXAttacks_character_deletion",
+    "seed": 44,
+    "datetime": "2026-09-07 01:32:41",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.4923111111111111,
+        "tpr_at_fpr_0_05": 0.05333333333333334,
+        "tpr_at_fpr_0_01": 0.013333333333333334,
+        "aupr": 0.5223240813907413,
+        "f1": 0.6696428571428571,
+        "accuracy": 0.5066666666666667
+    }
+}

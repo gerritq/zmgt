@@ -1,0 +1,16 @@
+{
+    "model": "radar",
+    "dataset": "drlXMix_mixed",
+    "seed": 43,
+    "datetime": "2026-09-06 11:08:56",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.45320000000000005,
+        "tpr_at_fpr_0_05": 0.0,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.43603149053870893,
+        "f1": 0.6826923076923077,
+        "accuracy": 0.56
+    }
+}

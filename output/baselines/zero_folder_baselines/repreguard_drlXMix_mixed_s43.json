@@ -1,0 +1,16 @@
+{
+    "model": "repreguard",
+    "dataset": "drlXMix_mixed",
+    "seed": 43,
+    "datetime": "2026-09-06 11:13:11",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9962666666666667,
+        "tpr_at_fpr_0_05": 1.0,
+        "tpr_at_fpr_0_01": 0.98,
+        "aupr": 0.9947686532258273,
+        "f1": 0.9933774834437086,
+        "accuracy": 0.9933333333333333
+    }
+}

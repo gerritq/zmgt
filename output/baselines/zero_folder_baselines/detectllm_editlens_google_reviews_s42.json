@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "editlens_google_reviews",
+    "seed": 42,
+    "datetime": "2026-09-23 10:42:00",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9784888888888889,
+        "tpr_at_fpr_0_05": 0.9,
+        "tpr_at_fpr_0_01": 0.8066666666666666,
+        "aupr": 0.9812602192276999,
+        "f1": 0.9311475409836065,
+        "accuracy": 0.93
+    }
+}

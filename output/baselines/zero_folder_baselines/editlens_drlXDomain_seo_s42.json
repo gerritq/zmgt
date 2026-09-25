@@ -1,0 +1,16 @@
+{
+    "model": "editlens",
+    "dataset": "drlXDomain_seo",
+    "seed": 42,
+    "datetime": "2026-09-04 01:23:21",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7530222222222223,
+        "tpr_at_fpr_0_05": 0.7266666666666667,
+        "tpr_at_fpr_0_01": 0.72,
+        "aupr": 0.8603195893040168,
+        "f1": 0.8372093023255814,
+        "accuracy": 0.86
+    }
+}

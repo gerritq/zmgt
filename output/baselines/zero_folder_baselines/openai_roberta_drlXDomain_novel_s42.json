@@ -1,0 +1,16 @@
+{
+    "model": "openai_roberta",
+    "dataset": "drlXDomain_novel",
+    "seed": 42,
+    "datetime": "2026-09-04 01:18:55",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.4845333333333333,
+        "tpr_at_fpr_0_05": 0.17333333333333334,
+        "tpr_at_fpr_0_01": 0.06,
+        "aupr": 0.5543510897037365,
+        "f1": 0.6697247706422018,
+        "accuracy": 0.52
+    }
+}

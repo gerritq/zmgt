@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "editlens_fineweb_edu",
+    "seed": 43,
+    "datetime": "2026-09-22 20:20:53",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.8864,
+        "tpr_at_fpr_0_05": 0.56,
+        "tpr_at_fpr_0_01": 0.32,
+        "aupr": 0.8965864201642203,
+        "f1": 0.8074534161490683,
+        "accuracy": 0.7933333333333333
+    }
+}

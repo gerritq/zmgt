@@ -1,0 +1,16 @@
+{
+    "model": "likelihood",
+    "dataset": "drlXModel_deepseek_v3",
+    "seed": 42,
+    "datetime": "2026-09-03 23:13:16",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5790666666666666,
+        "tpr_at_fpr_0_05": 0.04666666666666667,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.5359897966086496,
+        "f1": 0.6934673366834171,
+        "accuracy": 0.5933333333333334
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "drlXDomain_academic",
+    "seed": 42,
+    "datetime": "2026-09-04 01:47:33",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9052444444444445,
+        "tpr_at_fpr_0_05": 0.48,
+        "tpr_at_fpr_0_01": 0.3,
+        "aupr": 0.9048658301619292,
+        "f1": 0.8516129032258064,
+        "accuracy": 0.8466666666666667
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "entropy",
+    "dataset": "drlXAttacks_general_64",
+    "seed": 42,
+    "datetime": "2026-09-03 23:31:40",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.578111111111111,
+        "tpr_at_fpr_0_05": 0.02666666666666667,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.5482102203349373,
+        "f1": 0.6838407494145199,
+        "accuracy": 0.55
+    }
+}

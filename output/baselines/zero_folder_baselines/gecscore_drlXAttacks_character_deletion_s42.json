@@ -1,0 +1,16 @@
+{
+    "model": "gecscore",
+    "dataset": "drlXAttacks_character_deletion",
+    "seed": 42,
+    "datetime": "2026-09-04 06:37:07",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 284,
+        "auroc": 0.5591111111111111,
+        "tpr_at_fpr_0_05": 0.1,
+        "tpr_at_fpr_0_01": 0.07333333333333333,
+        "aupr": 0.5947152626018147,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

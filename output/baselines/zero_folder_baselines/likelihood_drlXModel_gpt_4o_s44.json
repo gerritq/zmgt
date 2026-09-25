@@ -1,0 +1,16 @@
+{
+    "model": "likelihood",
+    "dataset": "drlXModel_gpt_4o",
+    "seed": 44,
+    "datetime": "2026-09-06 22:15:37",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6212888888888889,
+        "tpr_at_fpr_0_05": 0.06,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.5752344775652553,
+        "f1": 0.7121951219512195,
+        "accuracy": 0.6066666666666667
+    }
+}

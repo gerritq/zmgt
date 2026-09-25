@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "drlXAttacks_decoder_paraphrasing",
+    "seed": 43,
+    "datetime": "2026-09-06 18:27:09",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 298,
+        "auroc": 0.8750222222222223,
+        "tpr_at_fpr_0_05": 0.4866666666666667,
+        "tpr_at_fpr_0_01": 0.12,
+        "aupr": 0.8654581682056933,
+        "f1": 0.8280254777070064,
+        "accuracy": 0.82
+    }
+}

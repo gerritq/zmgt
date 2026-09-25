@@ -1,0 +1,16 @@
+{
+    "model": "rank",
+    "dataset": "drlXAttacks_character_deletion",
+    "seed": 43,
+    "datetime": "2026-09-06 17:24:19",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5003555555555554,
+        "tpr_at_fpr_0_05": 0.22,
+        "tpr_at_fpr_0_01": 0.06,
+        "aupr": 0.6023683193942175,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

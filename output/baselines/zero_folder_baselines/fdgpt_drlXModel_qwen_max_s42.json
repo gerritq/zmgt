@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "drlXModel_qwen_max",
+    "seed": 42,
+    "datetime": "2026-09-04 00:43:38",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7944888888888889,
+        "tpr_at_fpr_0_05": 0.23333333333333334,
+        "tpr_at_fpr_0_01": 0.14,
+        "aupr": 0.786437388366934,
+        "f1": 0.7478260869565218,
+        "accuracy": 0.71
+    }
+}

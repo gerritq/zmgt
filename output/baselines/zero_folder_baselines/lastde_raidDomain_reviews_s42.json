@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "raidDomain_reviews",
+    "seed": 42,
+    "datetime": "2026-09-21 08:20:30",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9771555555555556,
+        "tpr_at_fpr_0_05": 0.94,
+        "tpr_at_fpr_0_01": 0.8666666666666667,
+        "aupr": 0.9832739848287185,
+        "f1": 0.9463087248322147,
+        "accuracy": 0.9466666666666667
+    }
+}

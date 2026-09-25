@@ -1,0 +1,16 @@
+{
+    "model": "gecscore",
+    "dataset": "drlXModel_deepseek_v3",
+    "seed": 44,
+    "datetime": "2026-09-07 03:47:00",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 286,
+        "auroc": 0.5655333333333332,
+        "tpr_at_fpr_0_05": 0.16666666666666666,
+        "tpr_at_fpr_0_01": 0.06666666666666667,
+        "aupr": 0.6053227172916749,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

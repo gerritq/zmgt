@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "ntsraidDomain_recipes",
+    "seed": 42,
+    "datetime": "2026-09-22 07:31:21",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 500,
+        "auroc": 0.757792,
+        "tpr_at_fpr_0_05": 0.596,
+        "tpr_at_fpr_0_01": 0.536,
+        "aupr": 0.8441219302627062,
+        "f1": 0.7333333333333333,
+        "accuracy": 0.776
+    }
+}

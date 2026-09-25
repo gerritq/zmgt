@@ -1,0 +1,16 @@
+{
+    "model": "entropy",
+    "dataset": "drlXDomain_novel",
+    "seed": 42,
+    "datetime": "2026-09-03 23:23:52",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.38393333333333335,
+        "tpr_at_fpr_0_05": 0.006666666666666667,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.44296870415735734,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

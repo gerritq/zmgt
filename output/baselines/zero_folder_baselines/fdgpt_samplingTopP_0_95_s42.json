@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "samplingTopP_0_95",
+    "seed": 42,
+    "datetime": "2026-09-21 20:38:18",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.816288888888889,
+        "tpr_at_fpr_0_05": 0.41333333333333333,
+        "tpr_at_fpr_0_01": 0.02,
+        "aupr": 0.8063861884530122,
+        "f1": 0.7864406779661017,
+        "accuracy": 0.79
+    }
+}

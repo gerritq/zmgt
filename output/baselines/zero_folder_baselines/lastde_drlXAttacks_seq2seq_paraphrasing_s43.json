@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "drlXAttacks_seq2seq_paraphrasing",
+    "seed": 43,
+    "datetime": "2026-09-06 07:56:24",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5185777777777778,
+        "tpr_at_fpr_0_05": 0.09333333333333334,
+        "tpr_at_fpr_0_01": 0.04666666666666667,
+        "aupr": 0.5697659625389717,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

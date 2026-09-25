@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "raidDomain_reviews",
+    "seed": 42,
+    "datetime": "2026-09-21 07:19:16",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9484000000000001,
+        "tpr_at_fpr_0_05": 0.92,
+        "tpr_at_fpr_0_01": 0.8866666666666667,
+        "aupr": 0.9703883004081217,
+        "f1": 0.9452054794520548,
+        "accuracy": 0.9466666666666667
+    }
+}

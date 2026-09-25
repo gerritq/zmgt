@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "raidModel_cohere_chat",
+    "seed": 42,
+    "datetime": "2026-09-21 07:43:01",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.987911111111111,
+        "tpr_at_fpr_0_05": 0.9666666666666667,
+        "tpr_at_fpr_0_01": 0.9333333333333333,
+        "aupr": 0.9913377149647493,
+        "f1": 0.9659863945578231,
+        "accuracy": 0.9666666666666667
+    }
+}

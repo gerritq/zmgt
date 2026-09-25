@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "editlens_news",
+    "seed": 44,
+    "datetime": "2026-09-22 22:24:31",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5633333333333334,
+        "tpr_at_fpr_0_05": 0.02,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.5095510409419748,
+        "f1": 0.6847290640394089,
+        "accuracy": 0.5733333333333334
+    }
+}

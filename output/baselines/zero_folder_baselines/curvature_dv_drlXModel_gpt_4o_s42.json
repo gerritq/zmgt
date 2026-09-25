@@ -1,0 +1,16 @@
+{
+    "model": "curvature_dv",
+    "dataset": "drlXModel_gpt_4o",
+    "seed": 42,
+    "datetime": "2026-09-17 13:54:11",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5784444444444444,
+        "tpr_at_fpr_0_05": 0.04,
+        "tpr_at_fpr_0_01": 0.006666666666666667,
+        "aupr": 0.5548080974069058,
+        "f1": 0.6995305164319249,
+        "accuracy": 0.5733333333333334
+    }
+}

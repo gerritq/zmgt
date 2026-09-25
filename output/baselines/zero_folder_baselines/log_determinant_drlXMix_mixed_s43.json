@@ -1,0 +1,16 @@
+{
+    "model": "log_determinant",
+    "dataset": "drlXMix_mixed",
+    "seed": 43,
+    "datetime": "2026-09-06 12:09:36",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6030666666666666,
+        "tpr_at_fpr_0_05": 0.08,
+        "tpr_at_fpr_0_01": 0.02,
+        "aupr": 0.5823292368455576,
+        "f1": 0.6886075949367089,
+        "accuracy": 0.59
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "llr",
+    "dataset": "drlXModel_qwen_max",
+    "seed": 44,
+    "datetime": "2026-09-06 22:02:30",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9112444444444444,
+        "tpr_at_fpr_0_05": 0.6066666666666667,
+        "tpr_at_fpr_0_01": 0.4,
+        "aupr": 0.915640314790475,
+        "f1": 0.8441558441558441,
+        "accuracy": 0.84
+    }
+}

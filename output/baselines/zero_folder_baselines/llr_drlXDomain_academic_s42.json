@@ -1,0 +1,16 @@
+{
+    "model": "llr",
+    "dataset": "drlXDomain_academic",
+    "seed": 42,
+    "datetime": "2026-09-03 22:50:32",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6917333333333333,
+        "tpr_at_fpr_0_05": 0.3333333333333333,
+        "tpr_at_fpr_0_01": 0.24,
+        "aupr": 0.7495545602521603,
+        "f1": 0.6763990267639902,
+        "accuracy": 0.5566666666666666
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "drlXDomain_academic",
+    "seed": 44,
+    "datetime": "2026-09-06 23:43:35",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 294,
+        "auroc": 0.9889777777777778,
+        "tpr_at_fpr_0_05": 0.9866666666666667,
+        "tpr_at_fpr_0_01": 0.54,
+        "aupr": 0.9843444642139544,
+        "f1": 0.9736842105263158,
+        "accuracy": 0.9733333333333334
+    }
+}

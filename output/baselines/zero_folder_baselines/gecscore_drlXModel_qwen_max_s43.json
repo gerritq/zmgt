@@ -1,0 +1,16 @@
+{
+    "model": "gecscore",
+    "dataset": "drlXModel_qwen_max",
+    "seed": 43,
+    "datetime": "2026-09-06 22:39:10",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 289,
+        "auroc": 0.5725777777777777,
+        "tpr_at_fpr_0_05": 0.2,
+        "tpr_at_fpr_0_01": 0.03333333333333333,
+        "aupr": 0.6219312766996212,
+        "f1": 0.6697038724373576,
+        "accuracy": 0.5166666666666667
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "drlXDomain_novel",
+    "seed": 43,
+    "datetime": "2026-09-06 04:40:45",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9243777777777779,
+        "tpr_at_fpr_0_05": 0.7333333333333333,
+        "tpr_at_fpr_0_01": 0.5066666666666667,
+        "aupr": 0.937395704237596,
+        "f1": 0.8553054662379421,
+        "accuracy": 0.85
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "drlXModel_gemini_2_5_flash",
+    "seed": 44,
+    "datetime": "2026-09-06 23:47:04",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 299,
+        "auroc": 0.8588222222222222,
+        "tpr_at_fpr_0_05": 0.32666666666666666,
+        "tpr_at_fpr_0_01": 0.1,
+        "aupr": 0.8413456791712082,
+        "f1": 0.8220858895705522,
+        "accuracy": 0.8066666666666666
+    }
+}

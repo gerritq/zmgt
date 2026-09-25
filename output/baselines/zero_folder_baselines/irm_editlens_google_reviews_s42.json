@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "editlens_google_reviews",
+    "seed": 42,
+    "datetime": "2026-09-22 19:52:59",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 293,
+        "auroc": 0.9734,
+        "tpr_at_fpr_0_05": 0.8666666666666667,
+        "tpr_at_fpr_0_01": 0.66,
+        "aupr": 0.9735831087774152,
+        "f1": 0.918918918918919,
+        "accuracy": 0.92
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "context_curvature_c",
+    "dataset": "drlXMix_mixed",
+    "seed": 44,
+    "datetime": "2026-09-18 01:20:58",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5012888888888889,
+        "tpr_at_fpr_0_05": 0.0,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.46065654743215545,
+        "f1": 0.683046683046683,
+        "accuracy": 0.57
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "curvature_dv",
+    "dataset": "drlXModel_gemini_2_5_flash",
+    "seed": 43,
+    "datetime": "2026-09-17 14:54:59",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6272444444444445,
+        "tpr_at_fpr_0_05": 0.04,
+        "tpr_at_fpr_0_01": 0.02,
+        "aupr": 0.5739776263233846,
+        "f1": 0.7156862745098039,
+        "accuracy": 0.6133333333333333
+    }
+}

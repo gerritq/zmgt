@@ -1,0 +1,16 @@
+{
+    "model": "likelihood",
+    "dataset": "drlXAttacks_general_256",
+    "seed": 42,
+    "datetime": "2026-09-03 23:20:13",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6112888888888889,
+        "tpr_at_fpr_0_05": 0.16,
+        "tpr_at_fpr_0_01": 0.02666666666666667,
+        "aupr": 0.6251679072962892,
+        "f1": 0.6885245901639344,
+        "accuracy": 0.5566666666666666
+    }
+}

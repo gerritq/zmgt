@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "samplingTopK_75",
+    "seed": 42,
+    "datetime": "2026-09-22 09:59:32",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9838666666666667,
+        "tpr_at_fpr_0_05": 0.92,
+        "tpr_at_fpr_0_01": 0.8733333333333333,
+        "aupr": 0.986440972402992,
+        "f1": 0.9387755102040817,
+        "accuracy": 0.94
+    }
+}

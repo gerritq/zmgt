@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "editlens_amazon_reviews",
+    "seed": 43,
+    "datetime": "2026-09-22 20:55:35",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9305333333333334,
+        "tpr_at_fpr_0_05": 0.6133333333333333,
+        "tpr_at_fpr_0_01": 0.42,
+        "aupr": 0.9290760774155226,
+        "f1": 0.8706624605678234,
+        "accuracy": 0.8633333333333333
+    }
+}

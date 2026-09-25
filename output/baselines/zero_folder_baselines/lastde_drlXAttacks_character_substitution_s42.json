@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "drlXAttacks_character_substitution",
+    "seed": 42,
+    "datetime": "2026-09-04 17:18:43",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6516444444444444,
+        "tpr_at_fpr_0_05": 0.09333333333333334,
+        "tpr_at_fpr_0_01": 0.03333333333333333,
+        "aupr": 0.6316002576867872,
+        "f1": 0.6803519061583577,
+        "accuracy": 0.6366666666666667
+    }
+}

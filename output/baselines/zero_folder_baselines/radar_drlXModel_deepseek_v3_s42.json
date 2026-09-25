@@ -1,0 +1,16 @@
+{
+    "model": "radar",
+    "dataset": "drlXModel_deepseek_v3",
+    "seed": 42,
+    "datetime": "2026-09-04 01:13:41",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.4071111111111111,
+        "tpr_at_fpr_0_05": 0.0,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.41268687320533737,
+        "f1": 0.6851851851851852,
+        "accuracy": 0.5466666666666666
+    }
+}

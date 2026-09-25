@@ -1,0 +1,16 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+*.pt
+
+# Virtual environments
+.venv
+.venv_bino
+/logs/*
+
+/data/raw/
+output/desc/csd_distribution_drlXWikipedia_en_l8b_s42_w2.json

@@ -1,0 +1,16 @@
+{
+    "model": "rank",
+    "dataset": "drlXModel_gemini_2_5_flash",
+    "seed": 42,
+    "datetime": "2026-09-03 23:38:26",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6692444444444444,
+        "tpr_at_fpr_0_05": 0.09333333333333334,
+        "tpr_at_fpr_0_01": 0.02666666666666667,
+        "aupr": 0.6397920765447633,
+        "f1": 0.7146529562982005,
+        "accuracy": 0.63
+    }
+}

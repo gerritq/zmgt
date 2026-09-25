@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "drlXModel_deepseek_v3",
+    "seed": 44,
+    "datetime": "2026-09-06 12:49:37",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7242666666666667,
+        "tpr_at_fpr_0_05": 0.08,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.6578708115592217,
+        "f1": 0.7220630372492837,
+        "accuracy": 0.6766666666666666
+    }
+}

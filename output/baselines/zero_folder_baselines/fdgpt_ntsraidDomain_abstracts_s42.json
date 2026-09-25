@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "ntsraidDomain_abstracts",
+    "seed": 42,
+    "datetime": "2026-09-21 20:40:34",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 498,
+        "auroc": 0.6742239999999999,
+        "tpr_at_fpr_0_05": 0.092,
+        "tpr_at_fpr_0_01": 0.048,
+        "aupr": 0.6603683173713378,
+        "f1": 0.7105788423153693,
+        "accuracy": 0.71
+    }
+}

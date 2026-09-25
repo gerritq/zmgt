@@ -1,0 +1,16 @@
+{
+    "model": "context_curvature_dv",
+    "dataset": "drlXAttacks_character_deletion",
+    "seed": 44,
+    "datetime": "2026-09-18 01:41:35",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5000888888888889,
+        "tpr_at_fpr_0_05": 0.06,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.49414820167322776,
+        "f1": 0.6756756756756757,
+        "accuracy": 0.52
+    }
+}

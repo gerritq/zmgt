@@ -1,0 +1,16 @@
+{
+    "model": "gecscore",
+    "dataset": "drlXDomain_novel",
+    "seed": 44,
+    "datetime": "2026-09-07 03:15:38",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 266,
+        "auroc": 0.5541111111111111,
+        "tpr_at_fpr_0_05": 0.10666666666666667,
+        "tpr_at_fpr_0_01": 0.04,
+        "aupr": 0.5841494199499742,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

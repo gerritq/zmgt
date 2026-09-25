@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "drlXAttacks_character_deletion",
+    "seed": 44,
+    "datetime": "2026-09-06 12:55:24",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6193777777777778,
+        "tpr_at_fpr_0_05": 0.11333333333333333,
+        "tpr_at_fpr_0_01": 0.04,
+        "aupr": 0.6238499641897743,
+        "f1": 0.6681614349775785,
+        "accuracy": 0.5066666666666667
+    }
+}

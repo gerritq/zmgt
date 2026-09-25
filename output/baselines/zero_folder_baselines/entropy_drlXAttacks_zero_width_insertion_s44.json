@@ -1,0 +1,16 @@
+{
+    "model": "entropy",
+    "dataset": "drlXAttacks_zero_width_insertion",
+    "seed": 44,
+    "datetime": "2026-09-06 22:31:42",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5026888888888889,
+        "tpr_at_fpr_0_05": 0.04,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.49372934472159496,
+        "f1": 0.6818181818181818,
+        "accuracy": 0.5333333333333333
+    }
+}

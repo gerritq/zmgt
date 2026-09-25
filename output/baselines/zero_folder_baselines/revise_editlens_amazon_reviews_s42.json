@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "editlens_amazon_reviews",
+    "seed": 42,
+    "datetime": "2026-09-22 20:47:35",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6056444444444444,
+        "tpr_at_fpr_0_05": 0.15333333333333332,
+        "tpr_at_fpr_0_01": 0.08,
+        "aupr": 0.6498334231419689,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

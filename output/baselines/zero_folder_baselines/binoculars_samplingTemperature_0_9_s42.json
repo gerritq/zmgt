@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "samplingTemperature_0_9",
+    "seed": 42,
+    "datetime": "2026-09-22 07:22:31",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9634222222222222,
+        "tpr_at_fpr_0_05": 0.94,
+        "tpr_at_fpr_0_01": 0.8733333333333333,
+        "aupr": 0.9777241958162076,
+        "f1": 0.9463087248322147,
+        "accuracy": 0.9466666666666667
+    }
+}

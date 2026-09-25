@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "raidModel_cohere_chat",
+    "seed": 42,
+    "datetime": "2026-09-21 07:25:42",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9853333333333333,
+        "tpr_at_fpr_0_05": 0.9466666666666667,
+        "tpr_at_fpr_0_01": 0.88,
+        "aupr": 0.9890469895342607,
+        "f1": 0.958904109589041,
+        "accuracy": 0.96
+    }
+}

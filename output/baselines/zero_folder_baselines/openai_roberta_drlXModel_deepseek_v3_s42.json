@@ -1,0 +1,16 @@
+{
+    "model": "openai_roberta",
+    "dataset": "drlXModel_deepseek_v3",
+    "seed": 42,
+    "datetime": "2026-09-04 01:19:31",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.4999777777777778,
+        "tpr_at_fpr_0_05": 0.0,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.458713713473194,
+        "f1": 0.6714975845410628,
+        "accuracy": 0.5466666666666666
+    }
+}

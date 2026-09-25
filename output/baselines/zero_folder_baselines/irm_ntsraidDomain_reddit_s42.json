@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "ntsraidDomain_reddit",
+    "seed": 42,
+    "datetime": "2026-09-21 20:03:13",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 496,
+        "auroc": 0.7032320000000001,
+        "tpr_at_fpr_0_05": 0.54,
+        "tpr_at_fpr_0_01": 0.328,
+        "aupr": 0.7971135107260366,
+        "f1": 0.7034482758620689,
+        "accuracy": 0.742
+    }
+}

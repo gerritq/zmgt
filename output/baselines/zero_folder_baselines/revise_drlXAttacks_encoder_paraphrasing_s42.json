@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "drlXAttacks_encoder_paraphrasing",
+    "seed": 42,
+    "datetime": "2026-09-04 03:56:52",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5363555555555555,
+        "tpr_at_fpr_0_05": 0.04666666666666667,
+        "tpr_at_fpr_0_01": 0.03333333333333333,
+        "aupr": 0.5260857790710296,
+        "f1": 0.6697459584295612,
+        "accuracy": 0.5233333333333333
+    }
+}

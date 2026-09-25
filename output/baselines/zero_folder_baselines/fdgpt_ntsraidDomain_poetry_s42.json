@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "ntsraidDomain_poetry",
+    "seed": 42,
+    "datetime": "2026-09-21 20:47:59",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 499,
+        "auroc": 0.5366879999999999,
+        "tpr_at_fpr_0_05": 0.04,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.5010967499911426,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

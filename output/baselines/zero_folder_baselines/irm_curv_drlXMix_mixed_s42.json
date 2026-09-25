@@ -1,0 +1,16 @@
+{
+    "model": "irm_curv",
+    "dataset": "drlXMix_mixed",
+    "seed": 42,
+    "datetime": "2026-09-25 12:07:32",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.222,
+        "tpr_at_fpr_0_05": 0.0,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.3523973481198593,
+        "f1": 0.6757369614512472,
+        "accuracy": 0.5233333333333333
+    }
+}

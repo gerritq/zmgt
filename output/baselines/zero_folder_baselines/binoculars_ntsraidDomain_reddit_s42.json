@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "ntsraidDomain_reddit",
+    "seed": 42,
+    "datetime": "2026-09-22 07:32:01",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 500,
+        "auroc": 0.810568,
+        "tpr_at_fpr_0_05": 0.464,
+        "tpr_at_fpr_0_01": 0.284,
+        "aupr": 0.8459026178415758,
+        "f1": 0.7797979797979798,
+        "accuracy": 0.782
+    }
+}

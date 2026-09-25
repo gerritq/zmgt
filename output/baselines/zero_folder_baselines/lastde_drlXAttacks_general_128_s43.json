@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "drlXAttacks_general_128",
+    "seed": 43,
+    "datetime": "2026-09-08 20:40:39",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6773777777777779,
+        "tpr_at_fpr_0_05": 0.13333333333333333,
+        "tpr_at_fpr_0_01": 0.1,
+        "aupr": 0.6847746648507087,
+        "f1": 0.690176322418136,
+        "accuracy": 0.59
+    }
+}

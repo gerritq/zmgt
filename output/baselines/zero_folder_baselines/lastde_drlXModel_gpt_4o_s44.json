@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "drlXModel_gpt_4o",
+    "seed": 44,
+    "datetime": "2026-09-06 14:47:46",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6812,
+        "tpr_at_fpr_0_05": 0.0,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.5836745612103502,
+        "f1": 0.7243243243243244,
+        "accuracy": 0.66
+    }
+}

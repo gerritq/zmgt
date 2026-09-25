@@ -1,0 +1,16 @@
+{
+    "model": "curvature",
+    "dataset": "drlXModel_deepseek_v3",
+    "seed": 42,
+    "datetime": "2026-09-25 09:31:00",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9439555555555554,
+        "tpr_at_fpr_0_05": 0.7733333333333333,
+        "tpr_at_fpr_0_01": 0.26,
+        "aupr": 0.9373002039271736,
+        "f1": 0.8737201365187713,
+        "accuracy": 0.8766666666666667
+    }
+}

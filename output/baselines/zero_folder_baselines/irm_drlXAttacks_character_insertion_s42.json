@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "drlXAttacks_character_insertion",
+    "seed": 42,
+    "datetime": "2026-09-04 01:34:32",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 297,
+        "auroc": 0.8723777777777778,
+        "tpr_at_fpr_0_05": 0.31333333333333335,
+        "tpr_at_fpr_0_01": 0.1,
+        "aupr": 0.8426426137518859,
+        "f1": 0.8317460317460318,
+        "accuracy": 0.8233333333333334
+    }
+}

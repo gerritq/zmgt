@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "editlens_reddit_writing_prompts",
+    "seed": 43,
+    "datetime": "2026-09-23 11:03:04",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9328888888888889,
+        "tpr_at_fpr_0_05": 0.76,
+        "tpr_at_fpr_0_01": 0.6133333333333333,
+        "aupr": 0.9468429808086538,
+        "f1": 0.8797250859106529,
+        "accuracy": 0.8833333333333333
+    }
+}

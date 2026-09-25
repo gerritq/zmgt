@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "drlXDomain_academic",
+    "seed": 42,
+    "datetime": "2026-09-04 14:40:19",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9213333333333333,
+        "tpr_at_fpr_0_05": 0.7333333333333333,
+        "tpr_at_fpr_0_01": 0.6,
+        "aupr": 0.9349813452927651,
+        "f1": 0.8448844884488449,
+        "accuracy": 0.8433333333333334
+    }
+}

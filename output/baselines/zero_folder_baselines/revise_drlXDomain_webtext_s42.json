@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "drlXDomain_webtext",
+    "seed": 42,
+    "datetime": "2026-09-04 02:16:44",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5136000000000001,
+        "tpr_at_fpr_0_05": 0.1,
+        "tpr_at_fpr_0_01": 0.02,
+        "aupr": 0.5391931539813208,
+        "f1": 0.6681715575620768,
+        "accuracy": 0.51
+    }
+}

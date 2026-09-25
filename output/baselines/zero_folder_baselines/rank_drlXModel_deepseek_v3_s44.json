@@ -1,0 +1,16 @@
+{
+    "model": "rank",
+    "dataset": "drlXModel_deepseek_v3",
+    "seed": 44,
+    "datetime": "2026-09-06 22:34:56",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7056888888888889,
+        "tpr_at_fpr_0_05": 0.1,
+        "tpr_at_fpr_0_01": 0.06,
+        "aupr": 0.6712128830765087,
+        "f1": 0.7172774869109948,
+        "accuracy": 0.64
+    }
+}

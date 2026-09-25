@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "drlXModel_gemini_2_5_flash",
+    "seed": 44,
+    "datetime": "2026-09-06 12:29:39",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6385777777777778,
+        "tpr_at_fpr_0_05": 0.0,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.556710877008446,
+        "f1": 0.7005347593582888,
+        "accuracy": 0.6266666666666667
+    }
+}

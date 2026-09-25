@@ -1,0 +1,16 @@
+{
+    "model": "llr",
+    "dataset": "drlXDomain_news",
+    "seed": 44,
+    "datetime": "2026-09-06 21:56:10",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6190222222222223,
+        "tpr_at_fpr_0_05": 0.35333333333333333,
+        "tpr_at_fpr_0_01": 0.28,
+        "aupr": 0.7132653495550251,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

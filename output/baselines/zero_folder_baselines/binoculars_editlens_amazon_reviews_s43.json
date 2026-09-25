@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "editlens_amazon_reviews",
+    "seed": 43,
+    "datetime": "2026-09-22 20:30:44",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9616666666666668,
+        "tpr_at_fpr_0_05": 0.8,
+        "tpr_at_fpr_0_01": 0.56,
+        "aupr": 0.9633870811720472,
+        "f1": 0.9196141479099679,
+        "accuracy": 0.9166666666666666
+    }
+}

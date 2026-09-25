@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "editlens_fineweb_edu",
+    "seed": 43,
+    "datetime": "2026-09-23 10:09:30",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9897333333333334,
+        "tpr_at_fpr_0_05": 0.9333333333333333,
+        "tpr_at_fpr_0_01": 0.88,
+        "aupr": 0.9909594345997028,
+        "f1": 0.9446254071661238,
+        "accuracy": 0.9433333333333334
+    }
+}

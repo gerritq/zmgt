@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "raidDomain_reddit",
+    "seed": 42,
+    "datetime": "2026-09-21 07:18:26",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.8658222222222223,
+        "tpr_at_fpr_0_05": 0.7,
+        "tpr_at_fpr_0_01": 0.4666666666666667,
+        "aupr": 0.9038675318325053,
+        "f1": 0.8265682656826568,
+        "accuracy": 0.8433333333333334
+    }
+}

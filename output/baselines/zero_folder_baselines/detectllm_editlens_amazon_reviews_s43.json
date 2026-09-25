@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "editlens_amazon_reviews",
+    "seed": 43,
+    "datetime": "2026-09-23 10:50:42",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.97,
+        "tpr_at_fpr_0_05": 0.8333333333333334,
+        "tpr_at_fpr_0_01": 0.7333333333333333,
+        "aupr": 0.9749792642173891,
+        "f1": 0.9245901639344263,
+        "accuracy": 0.9233333333333333
+    }
+}

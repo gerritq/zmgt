@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "samplingEta_5e_3",
+    "seed": 42,
+    "datetime": "2026-09-22 10:14:08",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9937777777777778,
+        "tpr_at_fpr_0_05": 0.98,
+        "tpr_at_fpr_0_01": 0.96,
+        "aupr": 0.9952455685390053,
+        "f1": 0.976271186440678,
+        "accuracy": 0.9766666666666667
+    }
+}

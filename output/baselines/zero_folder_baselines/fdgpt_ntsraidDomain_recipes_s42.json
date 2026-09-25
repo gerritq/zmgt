@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "ntsraidDomain_recipes",
+    "seed": 42,
+    "datetime": "2026-09-21 20:50:28",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 499,
+        "auroc": 0.5371360000000001,
+        "tpr_at_fpr_0_05": 0.044,
+        "tpr_at_fpr_0_01": 0.024,
+        "aupr": 0.5438971301502835,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

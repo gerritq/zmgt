@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "ntsraidDomain_reddit",
+    "seed": 42,
+    "datetime": "2026-09-21 20:52:42",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 496,
+        "auroc": 0.668792,
+        "tpr_at_fpr_0_05": 0.076,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.6217013206341125,
+        "f1": 0.7042801556420234,
+        "accuracy": 0.696
+    }
+}

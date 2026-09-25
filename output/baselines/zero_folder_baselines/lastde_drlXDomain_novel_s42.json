@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "drlXDomain_novel",
+    "seed": 42,
+    "datetime": "2026-09-04 16:49:02",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9605333333333335,
+        "tpr_at_fpr_0_05": 0.8733333333333333,
+        "tpr_at_fpr_0_01": 0.7,
+        "aupr": 0.9689558432701411,
+        "f1": 0.9128919860627178,
+        "accuracy": 0.9166666666666666
+    }
+}

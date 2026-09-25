@@ -1,0 +1,16 @@
+{
+    "model": "editlens",
+    "dataset": "editlens_google_reviews",
+    "seed": 44,
+    "datetime": "2026-09-22 22:36:44",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9955111111111111,
+        "tpr_at_fpr_0_05": 0.9933333333333333,
+        "tpr_at_fpr_0_01": 0.9933333333333333,
+        "aupr": 0.9973173970783534,
+        "f1": 0.9966555183946488,
+        "accuracy": 0.9966666666666667
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "editlens_google_reviews",
+    "seed": 44,
+    "datetime": "2026-09-22 20:35:17",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.8898,
+        "tpr_at_fpr_0_05": 0.5,
+        "tpr_at_fpr_0_01": 0.26,
+        "aupr": 0.884744099627163,
+        "f1": 0.8338557993730408,
+        "accuracy": 0.8233333333333334
+    }
+}

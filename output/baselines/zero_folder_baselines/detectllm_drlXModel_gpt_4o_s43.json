@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "drlXModel_gpt_4o",
+    "seed": 43,
+    "datetime": "2026-09-06 06:03:32",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6655555555555556,
+        "tpr_at_fpr_0_05": 0.0,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.5578762258205401,
+        "f1": 0.7407407407407407,
+        "accuracy": 0.6966666666666667
+    }
+}

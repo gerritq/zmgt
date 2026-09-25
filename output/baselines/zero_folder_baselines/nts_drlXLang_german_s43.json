@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "drlXLang_german",
+    "seed": 43,
+    "datetime": "2026-09-08 08:19:23",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.806,
+        "tpr_at_fpr_0_05": 0.4266666666666667,
+        "tpr_at_fpr_0_01": 0.26,
+        "aupr": 0.8273613318082118,
+        "f1": 0.736231884057971,
+        "accuracy": 0.6966666666666667
+    }
+}

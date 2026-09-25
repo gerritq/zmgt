@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "raidModel_llama_chat",
+    "seed": 42,
+    "datetime": "2026-09-21 07:15:25",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9672222222222222,
+        "tpr_at_fpr_0_05": 0.74,
+        "tpr_at_fpr_0_01": 0.37333333333333335,
+        "aupr": 0.9518119093298766,
+        "f1": 0.9230769230769231,
+        "accuracy": 0.92
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "editlens",
+    "dataset": "drlXAttacks_condensing",
+    "seed": 42,
+    "datetime": "2026-09-04 01:25:52",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.8474666666666666,
+        "tpr_at_fpr_0_05": 0.82,
+        "tpr_at_fpr_0_01": 0.82,
+        "aupr": 0.9116735177908443,
+        "f1": 0.8978102189781022,
+        "accuracy": 0.9066666666666666
+    }
+}

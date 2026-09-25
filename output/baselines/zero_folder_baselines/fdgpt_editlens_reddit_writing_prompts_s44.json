@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "editlens_reddit_writing_prompts",
+    "seed": 44,
+    "datetime": "2026-09-22 20:39:57",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7188444444444444,
+        "tpr_at_fpr_0_05": 0.3333333333333333,
+        "tpr_at_fpr_0_01": 0.24666666666666667,
+        "aupr": 0.7601422852788047,
+        "f1": 0.6967418546365914,
+        "accuracy": 0.5966666666666667
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "drlXDomain_novel",
+    "seed": 42,
+    "datetime": "2026-09-04 15:21:48",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.980488888888889,
+        "tpr_at_fpr_0_05": 0.8733333333333333,
+        "tpr_at_fpr_0_01": 0.76,
+        "aupr": 0.9807366557714472,
+        "f1": 0.9220338983050848,
+        "accuracy": 0.9233333333333333
+    }
+}

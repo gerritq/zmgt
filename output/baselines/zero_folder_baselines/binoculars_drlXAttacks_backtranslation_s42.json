@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "drlXAttacks_backtranslation",
+    "seed": 42,
+    "datetime": "2026-09-04 14:30:19",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6069111111111112,
+        "tpr_at_fpr_0_05": 0.06666666666666667,
+        "tpr_at_fpr_0_01": 0.013333333333333334,
+        "aupr": 0.5812207036470306,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "drlXLang_portuguese",
+    "seed": 43,
+    "datetime": "2026-09-06 11:05:43",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 297,
+        "auroc": 0.8814444444444445,
+        "tpr_at_fpr_0_05": 0.72,
+        "tpr_at_fpr_0_01": 0.46,
+        "aupr": 0.9086596264492776,
+        "f1": 0.8212927756653993,
+        "accuracy": 0.8433333333333334
+    }
+}

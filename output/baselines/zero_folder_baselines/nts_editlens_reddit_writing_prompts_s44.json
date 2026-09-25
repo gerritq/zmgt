@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "editlens_reddit_writing_prompts",
+    "seed": 44,
+    "datetime": "2026-09-22 21:20:53",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.8420000000000001,
+        "tpr_at_fpr_0_05": 0.5666666666666667,
+        "tpr_at_fpr_0_01": 0.22,
+        "aupr": 0.8606038143021649,
+        "f1": 0.7862068965517242,
+        "accuracy": 0.7933333333333333
+    }
+}

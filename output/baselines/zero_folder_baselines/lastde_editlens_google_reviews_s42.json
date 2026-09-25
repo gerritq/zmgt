@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "editlens_google_reviews",
+    "seed": 42,
+    "datetime": "2026-09-23 09:55:59",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9667555555555556,
+        "tpr_at_fpr_0_05": 0.86,
+        "tpr_at_fpr_0_01": 0.6866666666666666,
+        "aupr": 0.9710503308155731,
+        "f1": 0.9121621621621622,
+        "accuracy": 0.9133333333333333
+    }
+}

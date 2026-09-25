@@ -1,0 +1,16 @@
+{
+    "model": "openai_roberta",
+    "dataset": "drlXModel_qwen_max",
+    "seed": 42,
+    "datetime": "2026-09-04 01:19:58",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7087333333333334,
+        "tpr_at_fpr_0_05": 0.10666666666666667,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.6509661544660805,
+        "f1": 0.710997442455243,
+        "accuracy": 0.6233333333333333
+    }
+}

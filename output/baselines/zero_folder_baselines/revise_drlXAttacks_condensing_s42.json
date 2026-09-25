@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "drlXAttacks_condensing",
+    "seed": 42,
+    "datetime": "2026-09-04 03:39:32",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7434222222222222,
+        "tpr_at_fpr_0_05": 0.2,
+        "tpr_at_fpr_0_01": 0.11333333333333333,
+        "aupr": 0.737682685711196,
+        "f1": 0.7261904761904762,
+        "accuracy": 0.6933333333333334
+    }
+}

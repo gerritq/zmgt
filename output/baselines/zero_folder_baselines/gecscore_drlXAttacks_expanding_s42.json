@@ -1,0 +1,16 @@
+{
+    "model": "gecscore",
+    "dataset": "drlXAttacks_expanding",
+    "seed": 42,
+    "datetime": "2026-09-04 07:30:34",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 287,
+        "auroc": 0.44306666666666666,
+        "tpr_at_fpr_0_05": 0.11333333333333333,
+        "tpr_at_fpr_0_01": 0.03333333333333333,
+        "aupr": 0.5135568323787008,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

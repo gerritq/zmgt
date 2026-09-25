@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "raidDomain_recipes",
+    "seed": 42,
+    "datetime": "2026-09-21 07:17:00",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.788888888888889,
+        "tpr_at_fpr_0_05": 0.49333333333333335,
+        "tpr_at_fpr_0_01": 0.14666666666666667,
+        "aupr": 0.8274593406660966,
+        "f1": 0.7849829351535836,
+        "accuracy": 0.79
+    }
+}

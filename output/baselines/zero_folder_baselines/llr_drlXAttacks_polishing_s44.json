@@ -1,0 +1,16 @@
+{
+    "model": "llr",
+    "dataset": "drlXAttacks_polishing",
+    "seed": 44,
+    "datetime": "2026-09-06 22:09:37",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.49591111111111114,
+        "tpr_at_fpr_0_05": 0.13333333333333333,
+        "tpr_at_fpr_0_01": 0.1,
+        "aupr": 0.5615419195262474,
+        "f1": 0.672645739910314,
+        "accuracy": 0.5133333333333333
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "drlXModel_gemini_2_5_flash",
+    "seed": 44,
+    "datetime": "2026-09-06 14:44:52",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6948888888888889,
+        "tpr_at_fpr_0_05": 0.06,
+        "tpr_at_fpr_0_01": 0.013333333333333334,
+        "aupr": 0.636922938829634,
+        "f1": 0.71,
+        "accuracy": 0.6133333333333333
+    }
+}

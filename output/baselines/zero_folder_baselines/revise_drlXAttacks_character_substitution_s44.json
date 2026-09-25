@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "drlXAttacks_character_substitution",
+    "seed": 44,
+    "datetime": "2026-09-07 01:50:07",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.42173333333333335,
+        "tpr_at_fpr_0_05": 0.05333333333333334,
+        "tpr_at_fpr_0_01": 0.006666666666666667,
+        "aupr": 0.4763043765034984,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

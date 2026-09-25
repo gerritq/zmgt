@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "ntsraidDomain_news",
+    "seed": 42,
+    "datetime": "2026-09-22 11:10:16",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 500,
+        "auroc": 0.7557280000000001,
+        "tpr_at_fpr_0_05": 0.368,
+        "tpr_at_fpr_0_01": 0.244,
+        "aupr": 0.7959353362454133,
+        "f1": 0.7212475633528265,
+        "accuracy": 0.714
+    }
+}

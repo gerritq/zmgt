@@ -1,0 +1,16 @@
+{
+    "model": "rank",
+    "dataset": "drlXAttacks_expanding",
+    "seed": 42,
+    "datetime": "2026-09-03 23:43:13",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7991111111111111,
+        "tpr_at_fpr_0_05": 0.36,
+        "tpr_at_fpr_0_01": 0.07333333333333333,
+        "aupr": 0.7914584770395408,
+        "f1": 0.7530864197530864,
+        "accuracy": 0.7333333333333333
+    }
+}

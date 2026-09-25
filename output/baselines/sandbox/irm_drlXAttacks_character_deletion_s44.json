@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "drlXAttacks_character_deletion",
+    "seed": 44,
+    "datetime": "2026-09-06 23:48:52",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 295,
+        "auroc": 0.7965111111111112,
+        "tpr_at_fpr_0_05": 0.18666666666666668,
+        "tpr_at_fpr_0_01": 0.04666666666666667,
+        "aupr": 0.7562404933278816,
+        "f1": 0.774390243902439,
+        "accuracy": 0.7533333333333333
+    }
+}

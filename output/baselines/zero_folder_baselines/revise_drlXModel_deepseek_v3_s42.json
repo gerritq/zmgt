@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "drlXModel_deepseek_v3",
+    "seed": 42,
+    "datetime": "2026-09-04 02:32:13",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6252888888888889,
+        "tpr_at_fpr_0_05": 0.04,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.5719275224545686,
+        "f1": 0.6948356807511737,
+        "accuracy": 0.5666666666666667
+    }
+}

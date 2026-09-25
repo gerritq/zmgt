@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "raidDomain_reddit",
+    "seed": 42,
+    "datetime": "2026-09-21 07:18:21",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9204666666666667,
+        "tpr_at_fpr_0_05": 0.8866666666666667,
+        "tpr_at_fpr_0_01": 0.8866666666666667,
+        "aupr": 0.9538609990282673,
+        "f1": 0.9366197183098591,
+        "accuracy": 0.94
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "entropy",
+    "dataset": "drlXModel_deepseek_v3",
+    "seed": 42,
+    "datetime": "2026-09-03 23:25:43",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5953555555555556,
+        "tpr_at_fpr_0_05": 0.04,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.5498042320329831,
+        "f1": 0.6995073891625616,
+        "accuracy": 0.5933333333333334
+    }
+}

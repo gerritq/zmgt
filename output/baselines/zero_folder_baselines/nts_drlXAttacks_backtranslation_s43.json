@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "drlXAttacks_backtranslation",
+    "seed": 43,
+    "datetime": "2026-09-06 05:14:10",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5924,
+        "tpr_at_fpr_0_05": 0.14666666666666667,
+        "tpr_at_fpr_0_01": 0.06,
+        "aupr": 0.6229251611173927,
+        "f1": 0.672686230248307,
+        "accuracy": 0.5166666666666667
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "raidModel_cohere_chat",
+    "seed": 42,
+    "datetime": "2026-09-21 07:14:06",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9893777777777777,
+        "tpr_at_fpr_0_05": 0.9666666666666667,
+        "tpr_at_fpr_0_01": 0.9266666666666666,
+        "aupr": 0.9921308844408678,
+        "f1": 0.9666666666666667,
+        "accuracy": 0.9666666666666667
+    }
+}

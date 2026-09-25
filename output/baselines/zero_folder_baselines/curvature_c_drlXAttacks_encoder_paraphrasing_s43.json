@@ -1,0 +1,16 @@
+{
+    "model": "curvature_c",
+    "dataset": "drlXAttacks_encoder_paraphrasing",
+    "seed": 43,
+    "datetime": "2026-09-17 23:57:45",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5065777777777778,
+        "tpr_at_fpr_0_05": 0.013333333333333334,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.4691588382059695,
+        "f1": 0.6806526806526807,
+        "accuracy": 0.5433333333333333
+    }
+}

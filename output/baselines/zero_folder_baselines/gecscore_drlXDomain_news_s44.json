@@ -1,0 +1,16 @@
+{
+    "model": "gecscore",
+    "dataset": "drlXDomain_news",
+    "seed": 44,
+    "datetime": "2026-09-07 03:06:25",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 293,
+        "auroc": 0.36702222222222225,
+        "tpr_at_fpr_0_05": 0.04,
+        "tpr_at_fpr_0_01": 0.02,
+        "aupr": 0.46638577089981864,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

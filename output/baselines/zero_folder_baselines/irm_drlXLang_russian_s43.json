@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "drlXLang_russian",
+    "seed": 43,
+    "datetime": "2026-09-06 11:06:16",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6478444444444444,
+        "tpr_at_fpr_0_05": 0.2,
+        "tpr_at_fpr_0_01": 0.11333333333333333,
+        "aupr": 0.6771998988838004,
+        "f1": 0.69,
+        "accuracy": 0.5866666666666667
+    }
+}

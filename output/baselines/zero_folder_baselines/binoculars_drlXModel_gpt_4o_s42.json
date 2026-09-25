@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "drlXModel_gpt_4o",
+    "seed": 42,
+    "datetime": "2026-09-04 14:28:02",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.7251555555555556,
+        "tpr_at_fpr_0_05": 0.0,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.6112231464343385,
+        "f1": 0.7758620689655172,
+        "accuracy": 0.74
+    }
+}

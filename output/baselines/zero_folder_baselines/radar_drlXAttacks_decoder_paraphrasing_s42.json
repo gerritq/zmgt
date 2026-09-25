@@ -1,0 +1,16 @@
+{
+    "model": "radar",
+    "dataset": "drlXAttacks_decoder_paraphrasing",
+    "seed": 42,
+    "datetime": "2026-09-04 01:16:02",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.47786666666666666,
+        "tpr_at_fpr_0_05": 0.013333333333333334,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.45975869396282193,
+        "f1": 0.6681514476614699,
+        "accuracy": 0.5033333333333333
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "samplingTopK_10",
+    "seed": 42,
+    "datetime": "2026-09-22 07:33:52",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 1.0,
+        "tpr_at_fpr_0_05": 1.0,
+        "tpr_at_fpr_0_01": 1.0,
+        "aupr": 1.0,
+        "f1": 1.0,
+        "accuracy": 1.0
+    }
+}

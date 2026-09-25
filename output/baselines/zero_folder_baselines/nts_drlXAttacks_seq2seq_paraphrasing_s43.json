@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "drlXAttacks_seq2seq_paraphrasing",
+    "seed": 43,
+    "datetime": "2026-09-06 05:28:39",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.8485333333333334,
+        "tpr_at_fpr_0_05": 0.5333333333333333,
+        "tpr_at_fpr_0_01": 0.29333333333333333,
+        "aupr": 0.8615500297319998,
+        "f1": 0.7696629213483146,
+        "accuracy": 0.7266666666666667
+    }
+}

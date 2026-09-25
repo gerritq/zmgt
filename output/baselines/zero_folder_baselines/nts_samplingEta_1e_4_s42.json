@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "samplingEta_1e_4",
+    "seed": 42,
+    "datetime": "2026-09-22 08:16:24",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.8352,
+        "tpr_at_fpr_0_05": 0.58,
+        "tpr_at_fpr_0_01": 0.4,
+        "aupr": 0.8634997519502075,
+        "f1": 0.8013698630136986,
+        "accuracy": 0.8066666666666666
+    }
+}

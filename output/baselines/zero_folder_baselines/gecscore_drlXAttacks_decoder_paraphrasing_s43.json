@@ -1,0 +1,16 @@
+{
+    "model": "gecscore",
+    "dataset": "drlXAttacks_decoder_paraphrasing",
+    "seed": 43,
+    "datetime": "2026-09-06 23:30:37",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 288,
+        "auroc": 0.6172888888888889,
+        "tpr_at_fpr_0_05": 0.17333333333333334,
+        "tpr_at_fpr_0_01": 0.1,
+        "aupr": 0.6590423441219191,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

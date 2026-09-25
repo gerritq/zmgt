@@ -1,0 +1,16 @@
+{
+    "model": "editlens",
+    "dataset": "drlXAttacks_backtranslation",
+    "seed": 42,
+    "datetime": "2026-09-04 01:24:57",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.701911111111111,
+        "tpr_at_fpr_0_05": 0.6333333333333333,
+        "tpr_at_fpr_0_01": 0.6266666666666667,
+        "aupr": 0.8214722596720386,
+        "f1": 0.7704918032786885,
+        "accuracy": 0.8133333333333334
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "ntsraidDomain_poetry",
+    "seed": 42,
+    "datetime": "2026-09-22 09:25:07",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 500,
+        "auroc": 0.834368,
+        "tpr_at_fpr_0_05": 0.672,
+        "tpr_at_fpr_0_01": 0.596,
+        "aupr": 0.8920093775500729,
+        "f1": 0.8008849557522124,
+        "accuracy": 0.82
+    }
+}

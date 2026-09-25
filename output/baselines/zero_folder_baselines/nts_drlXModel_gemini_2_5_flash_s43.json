@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "drlXModel_gemini_2_5_flash",
+    "seed": 43,
+    "datetime": "2026-09-06 05:09:32",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6643555555555556,
+        "tpr_at_fpr_0_05": 0.06,
+        "tpr_at_fpr_0_01": 0.02,
+        "aupr": 0.6177427461484701,
+        "f1": 0.7043010752688172,
+        "accuracy": 0.6333333333333333
+    }
+}

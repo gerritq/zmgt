@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "editlens_amazon_reviews",
+    "seed": 43,
+    "datetime": "2026-09-22 19:54:20",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 293,
+        "auroc": 0.9830666666666668,
+        "tpr_at_fpr_0_05": 0.9,
+        "tpr_at_fpr_0_01": 0.8933333333333333,
+        "aupr": 0.9849033390657955,
+        "f1": 0.9403508771929825,
+        "accuracy": 0.9433333333333334
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "nts",
+    "dataset": "raidDomain_reviews",
+    "seed": 42,
+    "datetime": "2026-09-21 07:33:32",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9742222222222222,
+        "tpr_at_fpr_0_05": 0.9133333333333333,
+        "tpr_at_fpr_0_01": 0.6,
+        "aupr": 0.9754960467556049,
+        "f1": 0.9504950495049505,
+        "accuracy": 0.95
+    }
+}

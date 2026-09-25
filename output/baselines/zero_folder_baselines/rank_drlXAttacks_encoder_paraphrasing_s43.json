@@ -1,0 +1,16 @@
+{
+    "model": "rank",
+    "dataset": "drlXAttacks_encoder_paraphrasing",
+    "seed": 43,
+    "datetime": "2026-09-06 17:26:39",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5431555555555554,
+        "tpr_at_fpr_0_05": 0.15333333333333332,
+        "tpr_at_fpr_0_01": 0.05333333333333334,
+        "aupr": 0.5956763661929506,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5033333333333333
+    }
+}

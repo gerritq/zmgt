@@ -1,0 +1,16 @@
+{
+    "model": "irm",
+    "dataset": "ntsraidDomain_books",
+    "seed": 42,
+    "datetime": "2026-09-21 19:59:10",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 492,
+        "auroc": 0.77668,
+        "tpr_at_fpr_0_05": 0.62,
+        "tpr_at_fpr_0_01": 0.524,
+        "aupr": 0.8474272633921217,
+        "f1": 0.7494252873563219,
+        "accuracy": 0.782
+    }
+}

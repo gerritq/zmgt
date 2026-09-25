@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "samplingTemperature_1_0",
+    "seed": 42,
+    "datetime": "2026-09-22 10:33:44",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.4416888888888889,
+        "tpr_at_fpr_0_05": 0.37333333333333335,
+        "tpr_at_fpr_0_01": 0.3333333333333333,
+        "aupr": 0.651739926905548,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "fdgpt",
+    "dataset": "drlXAttacks_character_insertion",
+    "seed": 44,
+    "datetime": "2026-09-06 23:24:46",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.5502,
+        "tpr_at_fpr_0_05": 0.18,
+        "tpr_at_fpr_0_01": 0.09333333333333334,
+        "aupr": 0.6138450353206071,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

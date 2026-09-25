@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "samplingTemperature_1_1",
+    "seed": 42,
+    "datetime": "2026-09-22 08:38:41",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.06488888888888891,
+        "tpr_at_fpr_0_05": 0.02666666666666667,
+        "tpr_at_fpr_0_01": 0.02666666666666667,
+        "aupr": 0.3415103073765104,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

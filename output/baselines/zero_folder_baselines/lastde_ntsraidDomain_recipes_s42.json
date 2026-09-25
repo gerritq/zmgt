@@ -1,0 +1,16 @@
+{
+    "model": "lastde",
+    "dataset": "ntsraidDomain_recipes",
+    "seed": 42,
+    "datetime": "2026-09-22 11:18:49",
+    "metrics": {
+        "n_total": 500,
+        "n_valid": 500,
+        "auroc": 0.754704,
+        "tpr_at_fpr_0_05": 0.384,
+        "tpr_at_fpr_0_01": 0.248,
+        "aupr": 0.804568293970354,
+        "f1": 0.7130434782608696,
+        "accuracy": 0.736
+    }
+}

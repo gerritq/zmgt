@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "editlens_fineweb_edu",
+    "seed": 42,
+    "datetime": "2026-09-22 20:56:08",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.35257777777777777,
+        "tpr_at_fpr_0_05": 0.006666666666666667,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.40745736353704115,
+        "f1": 0.6681514476614699,
+        "accuracy": 0.5033333333333333
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "drlXModel_deepseek_v3",
+    "seed": 44,
+    "datetime": "2026-09-06 13:28:39",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.6988,
+        "tpr_at_fpr_0_05": 0.006666666666666667,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.5877815994068438,
+        "f1": 0.7527472527472527,
+        "accuracy": 0.7
+    }
+}

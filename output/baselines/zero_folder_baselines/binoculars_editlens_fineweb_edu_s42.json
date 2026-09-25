@@ -1,0 +1,16 @@
+{
+    "model": "binoculars",
+    "dataset": "editlens_fineweb_edu",
+    "seed": 42,
+    "datetime": "2026-09-22 20:26:16",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.9727777777777779,
+        "tpr_at_fpr_0_05": 0.8733333333333333,
+        "tpr_at_fpr_0_01": 0.7533333333333333,
+        "aupr": 0.9696841923417275,
+        "f1": 0.9265175718849841,
+        "accuracy": 0.9233333333333333
+    }
+}

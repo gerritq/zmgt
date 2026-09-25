@@ -1,0 +1,16 @@
+{
+    "model": "revise",
+    "dataset": "editlens_reddit_writing_prompts",
+    "seed": 42,
+    "datetime": "2026-09-22 21:20:08",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.38768888888888886,
+        "tpr_at_fpr_0_05": 0.08,
+        "tpr_at_fpr_0_01": 0.04,
+        "aupr": 0.47219511717946167,
+        "f1": 0.6696629213483146,
+        "accuracy": 0.51
+    }
+}

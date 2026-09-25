@@ -1,0 +1,16 @@
+{
+    "model": "curvature",
+    "dataset": "drlXDomain_novel",
+    "seed": 42,
+    "datetime": "2026-09-03 23:53:48",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.8625333333333334,
+        "tpr_at_fpr_0_05": 0.44,
+        "tpr_at_fpr_0_01": 0.11333333333333333,
+        "aupr": 0.8505341863734648,
+        "f1": 0.8048048048048048,
+        "accuracy": 0.7833333333333333
+    }
+}

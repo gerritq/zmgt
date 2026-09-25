@@ -1,0 +1,16 @@
+{
+    "model": "likelihood",
+    "dataset": "drlXDomain_webtext",
+    "seed": 42,
+    "datetime": "2026-09-03 23:12:16",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.4616,
+        "tpr_at_fpr_0_05": 0.06666666666666667,
+        "tpr_at_fpr_0_01": 0.03333333333333333,
+        "aupr": 0.5320736303708543,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

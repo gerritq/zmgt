@@ -1,0 +1,16 @@
+{
+    "model": "detectllm",
+    "dataset": "drlXLang_russian",
+    "seed": 42,
+    "datetime": "2026-09-08 08:41:49",
+    "metrics": {
+        "n_total": 300,
+        "n_valid": 300,
+        "auroc": 0.30604444444444445,
+        "tpr_at_fpr_0_05": 0.02,
+        "tpr_at_fpr_0_01": 0.0,
+        "aupr": 0.3842528660723349,
+        "f1": 0.6666666666666666,
+        "accuracy": 0.5
+    }
+}

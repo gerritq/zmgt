@@ -1,15 +1,15 @@
 {
-    "model": "curvature",
+    "model": "context_curvature",
     "dataset": "drlXAttacks_decoder_paraphrasing",
     "seed": 44,
-    "datetime": "2026-09-25 20:21:34",
+    "datetime": "2026-09-25 20:30:52",
     "metrics": {
         "n_total": 300,
         "n_valid": 300,
-        "auroc": 0.7268888888888889,
+        "auroc": 0.7219111111111112,
         "tpr_at_fpr_0_05": 0.3333333333333333,
-        "tpr_at_fpr_0_01": 0.17333333333333334,
-        "aupr": 0.7448514560425173,
+        "tpr_at_fpr_0_01": 0.15333333333333332,
+        "aupr": 0.7413735292535379,
         "f1": 0.6954436450839329,
         "accuracy": 0.5766666666666667
     }

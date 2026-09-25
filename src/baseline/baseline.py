@@ -62,8 +62,12 @@ def run(args: Namespace) -> None:
         model = IRM()
 
     elif args.model == "curvature":
-        from src.baseline.geometric import Curvature
-        model = Curvature()
+        from src.baseline.curvature import Curvature
+        model = Curvature(method="curvature")
+
+    elif args.model == "context_curvature":
+        from src.baseline.curvature import Curvature
+        model = Curvature(method="context_curvature")
 
     elif args.model == "repreguard":
         from src.baseline.repreguard import RepreGuard

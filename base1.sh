@@ -2,11 +2,11 @@
 #SBATCH --job-name=b1_curv_SALL
 #SBATCH --output=logs/%j.log
 #SBATCH --error=logs/%j.err
-#SBATCH --time=00:20:00
+#SBATCH --time=00:45:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=20GB
 #SBATCH --constraint=h200|h100|b200|a100|a100_40g|a100_80g
-#SBATCH --exclude=erc-hpc-comp035,erc-hpc-comp054,erc-hpc-comp040,erc-hpc-comp050
+#SBATCH --exclude=erc-hpc-comp054,erc-hpc-comp040
 #SBATCH --partition=gpu,nmes_gpu
 # SBATCH --partition=tier2_gpu 
 # SBATCH --account=er_prj_inf_impact_llm_wikipedia
@@ -15,7 +15,7 @@ set -euo pipefail
 
 nvidia-smi
 
-ROOT_DIR="${BASE_ZERO:-$(pwd)}"
+ROOT_DIR="${BASE_ZMGT:-$(pwd)}"
 cd "${ROOT_DIR}"
 
 export CUDA_LAUNCH_BLOCKING=1
@@ -115,7 +115,7 @@ DATASETS=(
   "raidDomain_wiki"
 )
 
-SEEDS=(42)
+SEEDS=(42 43 44)
 
 # Full ZERO-SHOT run (all datasets, one seed) takes about 10 hrs
 MODELS=(
@@ -129,6 +129,7 @@ MODELS=(
         #  "revise"
         #  "gecscore"
         "curvature"
+        "context_curvature"
         # TRAINED
         # "radar"
         # "openai_roberta"

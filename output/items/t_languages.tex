@@ -1,0 +1,15 @@
+\begin{tabular}{lcccccccccc}
+\toprule
+ & \multicolumn{2}{c}{\textbf{German}} & \multicolumn{2}{c}{\textbf{Chinese}} & \multicolumn{2}{c}{\textbf{Portuguese}} & \multicolumn{2}{c}{\textbf{Russian}} & \multicolumn{2}{c}{\textbf{Average}}\\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9}
+\textbf{Method} & \textbf{AUC $\uparrow$} & \textbf{TPR@5\% $\uparrow$} & \textbf{AUC $\uparrow$} & \textbf{TPR@5\% $\uparrow$} & \textbf{AUC $\uparrow$} & \textbf{TPR@5\% $\uparrow$} & \textbf{AUC $\uparrow$} & \textbf{TPR@5\% $\uparrow$} & \textbf{AUC $\uparrow$} & \textbf{TPR@5\% $\uparrow$} \\
+\midrule
+IRM & \cellcolor{orange!25}\underline{85.5$_{0.8}$} & \cellcolor{orange!25}\underline{52.2$_{6.9}$} & 72.1$_{1.6}$ & 28.7$_{6.1}$ & \cellcolor{orange!25}\underline{90.0$_{1.6}$} & \cellcolor{orange!25}\underline{70.2$_{3.1}$} & 66.2$_{1.4}$ & \cellcolor{orange!25}\underline{20.7$_{0.7}$} & \cellcolor{orange!25}\underline{78.5$_{0.3}$} & \cellcolor{orange!25}\underline{42.9$_{3.4}$} \\
+NTS & 79.5$_{1.0}$ & 33.3$_{8.1}$ & \cellcolor{orange!25}\underline{79.0$_{3.6}$} & \cellcolor{orange!25}\underline{37.6$_{9.1}$} & 85.3$_{2.0}$ & 52.4$_{5.6}$ & \cellcolor{orange!25}\underline{66.6$_{3.2}$} & 14.2$_{3.8}$ & 77.6$_{0.3}$ & 34.4$_{2.7}$ \\
+DetectLLM & 65.0$_{2.5}$ & 14.0$_{3.7}$ & 43.6$_{2.1}$ & 1.3$_{1.2}$ & 75.5$_{2.4}$ & 32.4$_{3.3}$ & 35.1$_{4.0}$ & 1.1$_{1.0}$ & 54.8$_{0.6}$ & 12.2$_{0.3}$ \\
+Lastde++ & 64.4$_{3.6}$ & 21.6$_{6.0}$ & 65.7$_{4.0}$ & 18.9$_{5.3}$ & 74.4$_{2.5}$ & 36.4$_{0.8}$ & 49.9$_{2.9}$ & 3.6$_{1.7}$ & 63.6$_{1.5}$ & 20.1$_{2.1}$ \\
+\midrule
+\textbf{Trace} & \cellcolor{cyan!25}\textbf{94.0$_{0.6}$} & \cellcolor{cyan!25}\textbf{73.6$_{1.9}$} & \cellcolor{cyan!25}\textbf{87.3$_{1.2}$} & \cellcolor{cyan!25}\textbf{42.7$_{9.0}$} & \cellcolor{cyan!25}\textbf{94.6$_{1.6}$} & \cellcolor{cyan!25}\textbf{71.6$_{3.7}$} & \cellcolor{cyan!25}\textbf{91.6$_{1.4}$} & \cellcolor{cyan!25}\textbf{60.9$_{4.5}$} & \cellcolor{cyan!25}\textbf{91.9$_{0.4}$} & \cellcolor{cyan!25}\textbf{62.2$_{1.5}$} \\
+$\Delta$ vs. BB & \textcolor{green!60!black}{+8.4} & \textcolor{green!60!black}{+21.3} & \textcolor{green!60!black}{+8.3} & \textcolor{green!60!black}{+5.1} & \textcolor{green!60!black}{+4.6} & \textcolor{green!60!black}{+1.3} & \textcolor{green!60!black}{+25.0} & \textcolor{green!60!black}{+40.2} & \textcolor{green!60!black}{+13.4} & \textcolor{green!60!black}{+19.2} \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,12 @@
+% Descriptive statistics, l8b, drlXDomainLen_wiki_2000_chars, seed 42: mean$_{std}$ per group (H = human, M = machine), the higher mean in bold; Delta = mean(M) - mean(H) with subscript p = two-sided Welch's t-test; AUC = P(M > H) of the raw value (Mann-Whitney U / n_H n_M); metrics against the same token at the previous layer, per token the mean over the layer steps, then the mean over tokens per text (no layer-specific view); hidden states as is.
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Metric} & \textbf{H} & \textbf{M} & \textbf{$\Delta_p$} & \textbf{AUC} \\
+\midrule
+Curvature & \textbf{1.603}$_{0.007}$ & 1.593$_{0.006}$ & -0.010$_{<0.001}$ & 0.142 \\
+Angle & \textbf{0.491}$_{0.010}$ & 0.473$_{0.009}$ & -0.018$_{<0.001}$ & 0.092 \\
+Magnitude & \textbf{9.893}$_{0.087}$ & 9.838$_{0.069}$ & -0.055$_{<0.001}$ & 0.300 \\
+Magnitude (unit) & \textbf{0.484}$_{0.010}$ & 0.467$_{0.009}$ & -0.017$_{<0.001}$ & 0.093 \\
+$\|h\|_2$ & 20.84$_{0.554}$ & \textbf{21.42}$_{0.437}$ & +0.579$_{<0.001}$ & 0.810 \\
+\bottomrule
+\end{tabular}

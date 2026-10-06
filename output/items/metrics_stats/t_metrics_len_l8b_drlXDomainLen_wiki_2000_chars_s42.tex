@@ -1,0 +1,10 @@
+% Descriptive statistics, l8b, drlXDomainLen_wiki_2000_chars, seed 42: mean$_{std}$ per group (H = human, M = machine), the higher mean in bold; Delta = mean(M) - mean(H) with subscript p = two-sided Welch's t-test; AUC = P(M > H) of the raw value (Mann-Whitney U / n_H n_M); text length and mean next-token entropy over the sequence (nats) per text.
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Per text} & \textbf{H} & \textbf{M} & \textbf{$\Delta_p$} & \textbf{AUC} \\
+\midrule
+Characters & 2000.0$_{0.000}$ & 2000.0$_{0.000}$ & +0.000$_{-}$ & 0.500 \\
+Tokens & \textbf{445.2}$_{35.09}$ & 401.8$_{31.70}$ & -43.46$_{<0.001}$ & 0.177 \\
+Entropy (nats) & \textbf{1.987}$_{0.311}$ & 1.615$_{0.238}$ & -0.372$_{<0.001}$ & 0.169 \\
+\bottomrule
+\end{tabular}

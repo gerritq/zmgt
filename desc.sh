@@ -2,7 +2,7 @@
 #SBATCH --job-name=zmgt_desc_entropy
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
-#SBATCH --time=00:30:00
+#SBATCH --time=00:15:00
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=30GB
@@ -62,7 +62,7 @@ SPLIT="test"
 #             echo "------------------------------------------------"
 #             echo "Running info_imbalance: Dataset=$DATASET, Model=$MODEL, Seed=$SEED, Split=$SPLIT"
 #             echo "------------------------------------------------"
-#             PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.desc.info_imbalance \
+#             PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.layer_desc.info_imbalance \
 #                 --model "$MODEL" \
 #                 --dataset "$DATASET" \
 #                 --seed "$SEED" \
@@ -80,7 +80,7 @@ for MODEL in "${MODELS[@]}"; do
             echo "------------------------------------------------"
             echo "Running layer_selection_entropy: Dataset=$DATASET, Model=$MODEL, Seed=$SEED, Split=$SPLIT"
             echo "------------------------------------------------"
-            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.desc.layer_selection_entropy \
+            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.layer_desc.layer_selection_entropy \
                 --model "$MODEL" \
                 --dataset "$DATASET" \
                 --seed "$SEED" \

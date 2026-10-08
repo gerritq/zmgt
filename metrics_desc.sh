@@ -5,7 +5,7 @@
 #SBATCH --time=01:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=30GB
-#SBATCH --partition=gpu,nmes_gpu,interruptible_gpu
+#SBATCH --partition=gpu,nmes_gpu
 #SBATCH --constraint=h200|h100|a100|a100_40g|a100_80g
 #SBATCH --exclude=erc-hpc-comp054,erc-hpc-comp048
 # SBATCH --partition=tier2_gpu 

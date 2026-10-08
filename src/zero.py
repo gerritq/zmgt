@@ -34,23 +34,33 @@ CONTEXT_K = 3
 #   inter_mean_angle:             mean_t φ
 #   inter_context_angle:          mean_t ∠(mean(h_t^{ℓ−3}, h_t^{ℓ−2}, h_t^{ℓ−1}), h_t^ℓ); NaN for ℓ < 3
 #   inter_angle_cv:               std_t φ / mean_t φ
+#   inter_angle_per_norm:         mean_t φ / mean_t n
 #   withinacross:                 mean_t (θ + φ)
 #   joint:                        mean_t √(θ φ)
 #   withinacross_rel:             mean_t (θ / θ̄¹ + φ / φ̄¹), θ̄¹ = mean_t θ[1, t], φ̄¹ = mean_t φ[1, t]: each angle
 #                                 relative to the same text's layer-1 mean before combining
 #   joint_rel:                    mean_t √((θ / θ̄¹) (φ / φ̄¹))
+#   joint_per_norm:               joint / mean_t n, the joint turning per unit of norm (as intra_angle_per_norm)
+#   joint_rel_per_norm:           joint_rel / mean_t n, the relative angles over the raw norm (see full_log_rel)
 #   joint_context:                mean_t √(θᶜ φᶜ), θᶜ / φᶜ the intra / inter context angles above (3 preceding tokens /
 #                                 layers mean-pooled), over the tokens with both (t ≥ SKIP + 3); NaN for ℓ < 3
-#   full:                         log mean_t n + ½ (mean_t θ + mean_t φ)
+#   full:                         log mean_t n − ½ (mean_t θ + mean_t φ), both parts higher for machine text
+#   full_mult:                    mean_t ∛(θ φ / n), the per-token geometric mean of θ, φ and 1 / n (as joint, with the
+#                                 norm as a third factor; invariant to a global scale of the norm)
 #   full_log:                     log mean_t n − ½ (log mean_t θ + log mean_t φ) = log (n̄ / √(θ̄ φ̄)): norm per unit of
 #                                 turning, both parts higher for machine text (larger norm, smaller angles)
-# The combined scores use the tokens that have both angles (t ≥ SKIP + 1).
+#   full_log_rel:                 log mean_t n − ½ (log (mean_t θ / θ̄¹) + log (mean_t φ / φ̄¹)): full_log with the angles
+#                                 relative to the text's layer-1 mean (where they detect best) and the norm raw (its
+#                                 signal is a per-text level that a layer-1 ratio removes)
+# The combined scores use the tokens that have both angles (t ≥ SKIP + 1). The ratio versions of the log scores are
+# meaningless (a log value near 0 or changing sign as denominator); use their raw versions.
 LAYER_SCORES = (
     "intra_mean_angle", "intra_context_angle", "intra_angle_cv",
     "intra_mean_norm", "intra_rel_norm",
     "intra_angle_per_norm", "intra_log_angle_per_log_norm", "intra_angle_per_geo_norm",
-    "inter_mean_angle", "inter_context_angle", "inter_angle_cv",
-    "withinacross", "joint", "withinacross_rel", "joint_rel", "joint_context", "full", "full_log",
+    "inter_mean_angle", "inter_context_angle", "inter_angle_cv", "inter_angle_per_norm",
+    "withinacross", "joint", "withinacross_rel", "joint_rel", "joint_per_norm", "joint_rel_per_norm",
+    "joint_context", "full", "full_mult", "full_log", "full_log_rel",
 )
 # Inter scores pooled over the layers (one per text): per token over the transformer layers 1..L−1 (the last hidden
 # state is already normed by HF, the logit input), then the mean over tokens:
@@ -62,11 +72,48 @@ POOLED_SCORES = (
     "inter_all_mean_angle", "inter_all_context_angle",
     "inter_all_mean_norm", "inter_all_log_angle_per_geo_norm",
 )
+# The intra scores that are defined on the embedding output h^0 (one per text, same formulas with ℓ = 0); the inter and
+# combined scores need a previous layer, and intra_rel_norm is 1 there.
+EMBEDDING_SCORES = (
+    "intra_mean_angle", "intra_context_angle", "intra_angle_cv", "intra_mean_norm",
+    "intra_angle_per_norm", "intra_log_angle_per_log_norm", "intra_angle_per_geo_norm",
+)
 # Orientation so that higher = machine: machine text has smaller angles and larger norms. Scores led by an angle are
-# negated (−1), norm scores kept (+1); full_log is already norm over angle (+1). Ratios are formed on the unsigned
-# values, then oriented the same way.
+# negated (−1), norm scores kept (+1); full and full_log(_rel) are already norm minus angle (+1). Ratios are formed on
+# the unsigned values, then oriented the same way.
 SIGNS = {name: (1 if "norm" in name and "angle" not in name else -1) for name in LAYER_SCORES + POOLED_SCORES}
-SIGNS["full_log"] = 1
+SIGNS["full"] = SIGNS["full_log"] = SIGNS["full_log_rel"] = 1
+SIGNS["joint_per_norm"] = SIGNS["joint_rel_per_norm"] = SIGNS["full_mult"] = -1
+# Short formula of every score for the printed summary (notation as above; x̄ = mean_t x, x¹ = at layer 1).
+FORMULAS = {
+    "intra_mean_angle": "mean θ",
+    "intra_context_angle": "mean ∠(mean h_{t-3..t-1}, h_t)",
+    "intra_angle_cv": "std θ / mean θ",
+    "intra_mean_norm": "mean n",
+    "intra_rel_norm": "mean (n / ‖h_t^0‖)",
+    "intra_angle_per_norm": "θ̄ / n̄",
+    "intra_log_angle_per_log_norm": "log θ̄ / log n̄",
+    "intra_angle_per_geo_norm": "θ̄ / exp(mean log n)",
+    "inter_mean_angle": "mean φ",
+    "inter_context_angle": "mean ∠(mean h^{l-3..l-1}, h^l)",
+    "inter_angle_cv": "std φ / mean φ",
+    "inter_angle_per_norm": "φ̄ / n̄",
+    "withinacross": "mean (θ + φ)",
+    "joint": "mean √(θφ)",
+    "withinacross_rel": "mean (θ/θ̄¹ + φ/φ̄¹)",
+    "joint_rel": "mean √((θ/θ̄¹)(φ/φ̄¹))",
+    "joint_per_norm": "mean √(θφ) / n̄",
+    "joint_rel_per_norm": "mean √((θ/θ̄¹)(φ/φ̄¹)) / n̄",
+    "joint_context": "mean √(θᶜφᶜ)",
+    "full": "log n̄ − ½(θ̄ + φ̄)",
+    "full_mult": "mean ∛(θφ / n)",
+    "full_log": "log n̄ − ½(log θ̄ + log φ̄)",
+    "full_log_rel": "log n̄ − ½(log θ̄/θ̄¹ + log φ̄/φ̄¹)",
+    "inter_all_mean_angle": "mean_{t,l} φ",
+    "inter_all_context_angle": "mean_{t,l} ∠(mean h^{l-3..l-1}, h^l)",
+    "inter_all_mean_norm": "mean_{t,l} n",
+    "inter_all_log_angle_per_geo_norm": "log φ̄ / exp(mean_{t,l} log n)",
+}
 
 
 def angle(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
@@ -83,13 +130,16 @@ class AngleNormScores():
         self.device = return_device()
         self.inference = Inference(model_name=args.model)
 
-    def scores(self, hidden_states: tuple[torch.Tensor, ...]) -> tuple[dict[str, np.ndarray], dict[str, float]]:
-        """Per-layer scores {name: (L,)} and pooled inter scores {name: float}, unsigned; NaN if the item is skipped."""
+    def scores(self, hidden_states: tuple[torch.Tensor, ...]
+               ) -> tuple[dict[str, np.ndarray], dict[str, float], dict[str, float]]:
+        """Per-layer scores {name: (L,)}, pooled inter scores {name: float} and embedding-output scores {name: float},
+        unsigned; NaN if the item is skipped."""
         n_layers, n_tokens = len(hidden_states) - 1, hidden_states[0].shape[0]
         kept = n_tokens - SKIP
         if kept < (1 - MAX_SKIP_SHARE) * n_tokens or kept < CONTEXT_K + 2:
             return ({name: np.full(n_layers, np.nan) for name in LAYER_SCORES},
-                    {name: float("nan") for name in POOLED_SCORES})
+                    {name: float("nan") for name in POOLED_SCORES},
+                    {name: float("nan") for name in EMBEDDING_SCORES})
 
         h_all = torch.stack(hidden_states)[:, SKIP:].to(self.device).float()  # (L + 1, T', D), with the embeddings
         h = h_all[1:]  # (L, T', D)
@@ -110,7 +160,7 @@ class AngleNormScores():
 
         mean_theta, mean_norm = theta.mean(dim=1), norm.mean(dim=1)
         geo_norm = norm.log().mean(dim=1).exp()
-        theta_c, phi_c = theta, phi[:, 1:]  # the tokens with both angles
+        theta_c, phi_c, norm_c = theta, phi[:, 1:], norm[:, 1:]  # the tokens with both angles
         # Each angle relative to the same text's layer-1 mean over these tokens.
         theta_rel = theta_c / theta_c[0].mean().clamp_min(1e-12)
         phi_rel = phi_c / phi_c[0].mean().clamp_min(1e-12)
@@ -127,13 +177,18 @@ class AngleNormScores():
             "inter_context_angle": torch.cat([torch.full((CONTEXT_K - 1,), float("nan"), device=h.device),
                                               inter_context.mean(dim=1)]),
             "inter_angle_cv": phi.std(dim=1) / phi.mean(dim=1),
+            "inter_angle_per_norm": phi.mean(dim=1) / mean_norm,
             "withinacross": (theta_c + phi_c).mean(dim=1),
             "joint": (theta_c * phi_c).sqrt().mean(dim=1),
             "withinacross_rel": (theta_rel + phi_rel).mean(dim=1),
             "joint_rel": (theta_rel * phi_rel).sqrt().mean(dim=1),
+            "joint_per_norm": (theta_c * phi_c).sqrt().mean(dim=1) / norm_c.mean(dim=1),
+            "joint_rel_per_norm": (theta_rel * phi_rel).sqrt().mean(dim=1) / norm_c.mean(dim=1),
             "joint_context": (intra_context * inter_context_full).sqrt().mean(dim=1),
-            "full": mean_norm.log() + 0.5 * (theta_c.mean(dim=1) + phi_c.mean(dim=1)),
+            "full": mean_norm.log() - 0.5 * (theta_c.mean(dim=1) + phi_c.mean(dim=1)),
+            "full_mult": (theta_c * phi_c / norm_c).pow(1 / 3).mean(dim=1),
             "full_log": mean_norm.log() - 0.5 * (theta_c.mean(dim=1).log() + phi_c.mean(dim=1).log()),
+            "full_log_rel": mean_norm.log() - 0.5 * (theta_rel.mean(dim=1).log() + phi_rel.mean(dim=1).log()),
         }
 
         # Pooled inter over transformer layers 1..L−1.
@@ -147,8 +202,25 @@ class AngleNormScores():
             "inter_all_mean_norm": norm_all.mean(),
             "inter_all_log_angle_per_geo_norm": phi_all.mean().log() / norm_all.log().mean().exp(),
         }
+
+        # Intra scores on the embedding output.
+        e = h_all[0]  # (T', D)
+        theta_e = angle(e[:-1], e[1:])
+        context_e = angle(e.unfold(0, CONTEXT_K, 1).mean(dim=-1)[:-1], e[CONTEXT_K:])
+        norm_e = e.norm(dim=-1).clamp_min(1e-12)
+        mean_theta_e, mean_norm_e = theta_e.mean(), norm_e.mean()
+        embedding = {
+            "intra_mean_angle": mean_theta_e,
+            "intra_context_angle": context_e.mean(),
+            "intra_angle_cv": theta_e.std() / mean_theta_e,
+            "intra_mean_norm": mean_norm_e,
+            "intra_angle_per_norm": mean_theta_e / mean_norm_e,
+            "intra_log_angle_per_log_norm": mean_theta_e.log() / mean_norm_e.log(),
+            "intra_angle_per_geo_norm": mean_theta_e / norm_e.log().mean().exp(),
+        }
         return ({name: value.cpu().numpy() for name, value in per_layer.items()},
-                {name: value.item() for name, value in pooled.items()})
+                {name: value.item() for name, value in pooled.items()},
+                {name: value.item() for name, value in embedding.items()})
 
     @staticmethod
     def metrics_by_layer(labels: np.ndarray, scores: np.ndarray) -> dict[str, dict]:
@@ -171,6 +243,7 @@ class AngleNormScores():
         labels = np.asarray([item["label"] for item in test_data])
         per_layer_values = {name: [] for name in LAYER_SCORES}
         pooled_values = {name: [] for name in POOLED_SCORES}
+        embedding_values = {name: [] for name in EMBEDDING_SCORES}
         item_latencies_ms = []
         item_peak_memory_mb = []
         using_cuda = torch.cuda.is_available()
@@ -182,11 +255,13 @@ class AngleNormScores():
             if args.benchmark:
                 start_time = time.perf_counter()
 
-            per_layer, pooled = self.scores(self.inference.run(item, args)["hidden_states"])
+            per_layer, pooled, embedding = self.scores(self.inference.run(item, args)["hidden_states"])
             for name, value in per_layer.items():
                 per_layer_values[name].append(value)
             for name, value in pooled.items():
                 pooled_values[name].append(value)
+            for name, value in embedding.items():
+                embedding_values[name].append(value)
             if args.benchmark:
                 if using_cuda:
                     torch.cuda.synchronize()
@@ -208,10 +283,13 @@ class AngleNormScores():
             }
         for name, values in pooled_values.items():
             metrics_by_score[name] = {"raw_metrics": self.evaluate(labels, SIGNS[name] * np.asarray(values, float))}
+        for name, values in embedding_values.items():
+            metrics_by_score[name]["embedding_metrics"] = self.evaluate(labels,
+                                                                        SIGNS[name] * np.asarray(values, float))
 
         print(f"\nangle_norm | model: {args.model} | dataset: {args.dataset} | seed: {args.seed} | "
               f"skipped items: {n_skipped}")
-        print(f"{'score':>34}{'raw best (layer)':>20}{'ratio best (layer)':>22}")
+        print(f"{'score':>34}{'raw best (layer)':>20}{'ratio best (layer)':>22}   formula")
         for name in LAYER_SCORES:
             cells = []
             for kind in ("raw", "ratio"):
@@ -221,11 +299,11 @@ class AngleNormScores():
                     cells.append(f"{m['auroc']:.3f} ({int(layer.split('_')[1]) + 1})")
                 else:
                     cells.append("--")
-            print(f"{name:>34}{cells[0]:>20}{cells[1]:>22}")
+            print(f"{name:>34}{cells[0]:>20}{cells[1]:>22}   {FORMULAS[name]}")
         for name in POOLED_SCORES:
             m = metrics_by_score[name]["raw_metrics"]
             cell = f"{m['auroc']:.3f} (all)" if m else "--"
-            print(f"{name:>34}{cell:>20}")
+            print(f"{name:>34}{cell:>20}{'':>22}   {FORMULAS[name]}")
 
         file_name = f"angle_norm_{args.model_name}_{args.dataset}_s{args.seed}"
         output = {
@@ -240,6 +318,20 @@ class AngleNormScores():
             "layer_numbering": "layer_i = transformer layer i + 1 (embeddings excluded)",
             "metrics_by_score": metrics_by_score,
         }
+        if args.save_scores:
+            # Per-text scores in test-set order, oriented with SIGNS (higher = machine); NaN (skipped) as null.
+            def to_list(values: np.ndarray) -> list:
+                return np.where(np.isfinite(values), values, None).tolist()
+
+            output["per_text"] = {
+                "labels": labels.tolist(),
+                "layer_scores": {name: to_list(SIGNS[name] * np.asarray(values, dtype=float))
+                                 for name, values in per_layer_values.items()},  # (N, L)
+                "pooled_scores": {name: to_list(SIGNS[name] * np.asarray(values, dtype=float))
+                                  for name, values in pooled_values.items()},  # (N,)
+                "embedding_scores": {name: to_list(SIGNS[name] * np.asarray(values, dtype=float))
+                                     for name, values in embedding_values.items()},  # (N,), on h^0
+            }
         if args.benchmark:
             output["mean_latency_per_item_ms"] = float(np.mean(item_latencies_ms))
             output["mean_peak_gpu_memory_per_item_mb"] = (
@@ -270,8 +362,16 @@ def parse_args() -> Namespace:
         default=0,
         help="Set to 1 to measure per-item latency and peak CUDA memory.",
     )
+    parser.add_argument(
+        "--save_scores",
+        type=int,
+        choices=(0, 1),
+        default=0,
+        help="Set to 1 to store the per-text scores (and labels) in the output json.",
+    )
     args = parser.parse_args()
     args.benchmark = bool(args.benchmark)
+    args.save_scores = bool(args.save_scores)
     return args
 
 

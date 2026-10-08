@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_joint_context
+#SBATCH --job-name=zmgt_save_scores
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --time=00:30:00
@@ -7,7 +7,7 @@
 #SBATCH --mem=30GB
 #SBATCH --partition=gpu,nmes_gpu,interruptible_gpu
 #SBATCH --constraint=h200|h100|b200|a100|a100_40g|a100_80g
-#SBATCH --exclude=erc-hpc-comp054,erc-hpc-comp040
+#SBATCH --exclude=erc-hpc-comp054,erc-hpc-comp048
 # SBATCH --partition=tier2_gpu 
 # SBATCH --account=er_prj_inf_impact_llm_wikipedia
 
@@ -136,11 +136,13 @@ MODELS=("l8b") # "q8b" "q8bb" "l8b" "l8bb"
 # )
 
 # "drlXAttacks_decoder_paraphrasing" "drlXDomain_academic" "drlXAttacks_character_substitution"
-DATASETS=("drlXDomain_seo")
+# DATASETS=("drlXDomain_seo" "drlXAttacks_decoder_paraphrasing" "editlens_fineweb_edu")
+DATASETS=("raidDomain_wiki")
 
-SEEDS=(42 43 44) # 42 43 44 45 46
+SEEDS=(42) # 42 43 44 45 46
 OUTPUT_FOLDER="sandbox" # output/zero/sandbox
 BENCHMARK=0
+SAVE_SCORES=1 # 1 = store per-text scores in the output json
 
 for MODEL in "${MODELS[@]}"; do
     for SEED in "${SEEDS[@]}"; do
@@ -153,7 +155,8 @@ for MODEL in "${MODELS[@]}"; do
                 --dataset "$DATASET" \
                 --seed "$SEED" \
                 --output_folder "$OUTPUT_FOLDER" \
-                --benchmark "$BENCHMARK"
+                --benchmark "$BENCHMARK" \
+                --save_scores "$SAVE_SCORES"
         done
     done
 done

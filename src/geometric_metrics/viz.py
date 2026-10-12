@@ -1,6 +1,6 @@
 """
-Within-layer metrics per token position: for every other transformer layer 1..17, one panel with the token position
-on the x-axis and the metric on the y-axis; one PDF per metric. Every text is a thin transparent line, smoothed by a
+Within-layer metrics per token position: for transformer layers LAYERS, one panel each in a single row, with the token
+position on the x-axis and the metric on the y-axis; one PDF per metric. Every text is a thin transparent line, smoothed by a
 centred rolling mean over SMOOTH_WINDOW tokens; each group's mean of these smoothed lines at every position is a solid
 line with its 95% CI (± 1.96 SE over texts) as a band, and the group's mean over texts and tokens a dashed horizontal
 line:
@@ -9,7 +9,7 @@ line:
 on the raw hidden states. Both drop the first SKIP tokens (the attention sink, ‖h‖ ≈ 480 vs. ≈ 20, and the large,
 position-driven norms after it): the norm starts at position SKIP + 1 and the angle at SKIP + 2, the first pair of kept
 tokens (positions counted from 1).
-Also, per layer, a contour plot of each text's mean norm (x) against its mean angle (y), with Gaussian KDE contours
+Also, per layer (one row), a contour plot of each text's mean norm (x) against its mean angle (y), with Gaussian KDE contours
 for the human and the machine texts.
 Every panel's title gives the AUC P(M > H) of the per-text mean (Mann-Whitney U / n_H n_M) at that layer; the
 contour panels also give the Pearson r between the per-text mean norm and mean angle, over all texts (title) and per
@@ -34,8 +34,8 @@ from src.config import Config
 cfg = Config()
 
 OUTPUT_DIR = os.path.join(cfg.base_dir, "output", "metrics", "desc")
-# Transformer layers 1..L (embeddings excluded), every other one from 1 to 17.
-LAYERS = tuple(range(1, 18, 2))
+# Transformer layers 1..L (embeddings excluded) shown, one panel each in a single row.
+LAYERS = (4, 8, 12, 18)
 METRICS = ("angle", "norm")
 YLABELS = {"angle": r"$\angle(h_{t-1}, h_t)$ (rad)", "norm": r"$\|h_t\|_2$"}
 GROUPS = ((0, "human", "#1f77b4"), (1, "machine", "#d62728"))
@@ -43,6 +43,8 @@ GROUPS = ((0, "human", "#1f77b4"), (1, "machine", "#d62728"))
 SKIP = 10
 # Tokens in the centred rolling mean of the per-token lines.
 SMOOTH_WINDOW = 10
+# Opacity of each text's line in the per-token plots.
+TEXT_ALPHA = 0.015
 # Density levels of the contours, as shares of each group's KDE maximum.
 CONTOUR_LEVELS = (0.1, 0.3, 0.5, 0.7, 0.9)
 
@@ -111,19 +113,17 @@ def smooth(values: np.ndarray, window: int = SMOOTH_WINDOW) -> np.ndarray:
 
 def plot(labels: np.ndarray, values: np.ndarray, metric: str, title: str, path: str) -> None:
     """
-    3 × 3 panels, one per layer: every text a thin smoothed line, each group's per-position mean of those lines with
+    One row of panels, one per layer: every text a thin smoothed line, each group's per-position mean of those lines with
     its 95% CI band, and the group's overall mean (raw values) as a dashed horizontal line.
     """
     smoothed = smooth(values)  # (N, len(LAYERS), T)
     positions = np.arange(1, values.shape[2] + 1)
-    n_cols = 3
-    n_rows = int(np.ceil(len(LAYERS) / n_cols))
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 3.2 * n_rows), squeeze=False)
+    fig, axes = plt.subplots(1, len(LAYERS), figsize=(5 * len(LAYERS), 3.6), squeeze=False)
     for i, layer in enumerate(LAYERS):
-        ax = axes[i // n_cols][i % n_cols]
+        ax = axes[0][i]
         for label, group, color in GROUPS:
             for row in smoothed[labels == label, i]:
-                ax.plot(positions, row, color=color, alpha=0.06, linewidth=0.4)
+                ax.plot(positions, row, color=color, alpha=TEXT_ALPHA, linewidth=0.4)
         for label, group, color in GROUPS:
             lines = smoothed[labels == label, i]
             # Positions where no text has a smoothed value give NaN (and "mean of empty slice" warnings).
@@ -141,8 +141,6 @@ def plot(labels: np.ndarray, values: np.ndarray, metric: str, title: str, path: 
         ax.set_xlabel("Token position")
         ax.set_ylabel(YLABELS[metric])
         ax.legend(frameon=False, fontsize=7, loc="upper right")
-    for j in range(len(LAYERS), n_rows * n_cols):
-        axes[j // n_cols][j % n_cols].axis("off")
     fig.suptitle(title, fontsize=10)
     fig.tight_layout()
     fig.savefig(path)
@@ -176,21 +174,17 @@ def draw_contour(ax: plt.Axes, labels: np.ndarray, x: np.ndarray, y: np.ndarray,
 
 def plot_contours(labels: np.ndarray, values: dict[str, np.ndarray], title: str, path: str) -> None:
     """
-    3 × 3 panels, one per layer: each text's mean norm (x) against its mean angle (y) as faint points, with the
+    One row of panels, one per layer: each text's mean norm (x) against its mean angle (y) as faint points, with the
     Gaussian KDE contours of each group at CONTOUR_LEVELS of its maximum density.
     """
     mean_angle = np.nanmean(values["angle"], axis=2)  # (N, len(LAYERS))
     mean_norm = np.nanmean(values["norm"], axis=2)
-    n_cols = 3
-    n_rows = int(np.ceil(len(LAYERS) / n_cols))
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 3.8 * n_rows), squeeze=False)
+    fig, axes = plt.subplots(1, len(LAYERS), figsize=(5 * len(LAYERS), 4.2), squeeze=False)
     for i, layer in enumerate(LAYERS):
-        ax = axes[i // n_cols][i % n_cols]
+        ax = axes[0][i]
         draw_contour(ax, labels, mean_norm[:, i], mean_angle[:, i], f"Layer {layer}: ")
         ax.set_xlabel(rf"Mean $\|h_t\|_2$ (from token {SKIP + 1})")
         ax.set_ylabel(rf"Mean $\angle(h_{{t-1}}, h_t)$ (from token {SKIP + 2}, rad)")
-    for j in range(len(LAYERS), n_rows * n_cols):
-        axes[j // n_cols][j % n_cols].axis("off")
     fig.suptitle(title, fontsize=10)
     fig.tight_layout()
     fig.savefig(path)

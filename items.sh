@@ -13,15 +13,15 @@ cd "${ROOT_DIR}"
 
 
 # ----------------------------------------------------
-# t_metrics_desc
+# f_metrics_desc
 # ----------------------------------------------------
-# MODEL="l8b"
-# DESC_DATASETS=("drlXDomainLen_wiki_500_tokens" "drlXDomainLen_wiki_2000_chars")
-# for DATASET in "${DESC_DATASETS[@]}"; do
-#     PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.t_metrics_desc \
-#         --model "$MODEL" \
-#         --dataset "$DATASET"
-# done
+MODEL="l8b"
+DESC_DATASETS=("drlXDomainLen_wiki_500_tokens" "drlXDomainLen_wiki_2000_chars")
+for DATASET in "${DESC_DATASETS[@]}"; do
+    PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_metrics_desc \
+        --model "$MODEL" \
+        --dataset "$DATASET"
+done
 
 
 

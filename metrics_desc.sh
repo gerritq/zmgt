@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_shared_test
+#SBATCH --job-name=zmgt_aniso
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --time=01:00:00
@@ -20,7 +20,12 @@ cd "${ROOT_DIR}"
 
 MODELS=("l8b") # "q8b" "q8bb" "l8b" "l8bb"
 
-DATASETS=("drlXDomainLen_wiki_500_tokens" "drlXDomainLen_wiki_2000_chars")
+DATASETS=(
+         "drlXDomainLen_wiki_500_tokens" 
+        #   "drlXDomainLen_wiki_2000_chars"
+        #    "drlXAttacks_character_substitution"
+        #  "drlXAttacks_decoder_paraphrasing"
+          )
 
 SEEDS=(42) # 42 43 44
 
@@ -78,18 +83,39 @@ SEEDS=(42) # 42 43 44
 FIT_SPLIT="test" # split the global SVD is fitted on: test, val, train
 SAVE_SCORES=1 # 1 = store per-text scores in the output json
 
+# for MODEL in "${MODELS[@]}"; do
+#     for SEED in "${SEEDS[@]}"; do
+#         for DATASET in "${DATASETS[@]}"; do
+#             echo "------------------------------------------------"
+#             echo "Running shared-part tests: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
+#             echo "------------------------------------------------"
+#             PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.geometric_metrics.test_shared \
+#                 --model "$MODEL" \
+#                 --dataset "$DATASET" \
+#                 --seed "$SEED" \
+#                 --fit_split "$FIT_SPLIT" \
+#                 --save_scores "$SAVE_SCORES"
+#         done
+#     done
+# done
+
+
+# ----------------------------------------------------
+# Per-text anisotropy at every hidden-state layer (src/geometric_metrics/aniso.py)
+# ----------------------------------------------------
+ANISO_SKIP_TOKENS=10
+
 for MODEL in "${MODELS[@]}"; do
     for SEED in "${SEEDS[@]}"; do
         for DATASET in "${DATASETS[@]}"; do
             echo "------------------------------------------------"
-            echo "Running shared-part tests: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
+            echo "Running anisotropy: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
             echo "------------------------------------------------"
-            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.geometric_metrics.test_shared \
+            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.geometric_metrics.aniso \
                 --model "$MODEL" \
                 --dataset "$DATASET" \
                 --seed "$SEED" \
-                --fit_split "$FIT_SPLIT" \
-                --save_scores "$SAVE_SCORES"
+                --skip_tokens "$ANISO_SKIP_TOKENS"
         done
     done
 done

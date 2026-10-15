@@ -26,6 +26,24 @@ done
 
 
 # ----------------------------------------------------
+# f_aniso
+# ----------------------------------------------------
+# loops over all datasets in output/metrics/aniso (aniso_{MODEL}_{DATASET}_s{SEED}.json)
+MODEL="l8b"
+SEED=42
+for FILE in "${ROOT_DIR}"/output/metrics/aniso/aniso_${MODEL}_*_s${SEED}.json; do
+    [ -e "$FILE" ] || continue
+    DATASET=$(basename "$FILE" .json)
+    DATASET=${DATASET#aniso_${MODEL}_}
+    DATASET=${DATASET%_s${SEED}}
+    PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_aniso \
+        --model "$MODEL" \
+        --dataset "$DATASET" \
+        --seed "$SEED"
+done
+
+
+# ----------------------------------------------------
 # t_main
 # ----------------------------------------------------
 # SCORE: key in metrics_by_score (e.g. full_log, joint, withinacross_rel, intra_mean_norm)

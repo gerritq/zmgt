@@ -18,10 +18,10 @@ nvidia-smi
 ROOT_DIR="${BASE_ZMGT:-$(pwd)}"
 cd "${ROOT_DIR}"
 
-MODELS=("l8b") # "q8b" "q8bb" "l8b" "l8bb"
+MODELS=("q8b") # "q8b" "q8bb" "l8b" "l8bb"
 
 DATASETS=(
-        #   "drlXDomainLen_wiki_500_tokens" 
+           "drlXDomainLen_wiki_500_tokens" 
             "drlXDomainLen_news_500_tokens" 
               "drlXDomainLen_novel_500_tokens" 
                 "drlXDomainLen_seo_500_tokens" 

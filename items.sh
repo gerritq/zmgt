@@ -28,20 +28,18 @@ done
 # ----------------------------------------------------
 # f_aniso
 # ----------------------------------------------------
-# loops over all models and datasets in output/metrics/aniso (aniso_{MODEL}_{DATASET}_s{SEED}.json)
-ANISO_MODELS=("l8b" "q8b" "g12b")
+# one PDF per model and figure with all domains (datasets) in output/metrics/aniso
+# VARIANT: all | skip10pct (first 10% of tokens dropped) | med5 / med10 (tokens with ||h_t|| > 5 / 10 x median dropped)
+# models: every model with aniso files in the folder
+VARIANT="med5"
 SEED=42
-for MODEL in "${ANISO_MODELS[@]}"; do
-    for FILE in "${ROOT_DIR}"/output/metrics/aniso/aniso_${MODEL}_*_s${SEED}.json; do
-        [ -e "$FILE" ] || continue
-        DATASET=$(basename "$FILE" .json)
-        DATASET=${DATASET#aniso_${MODEL}_}
-        DATASET=${DATASET%_s${SEED}}
-        PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_aniso \
-            --model "$MODEL" \
-            --dataset "$DATASET" \
-            --seed "$SEED"
-    done
+ANISO_MODELS=$(ls "${ROOT_DIR}"/output/metrics/aniso/aniso_*_s${SEED}.json 2>/dev/null \
+    | xargs -n1 basename | cut -d_ -f2 | sort -u)
+for MODEL in $ANISO_MODELS; do
+    PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_aniso \
+        --model "$MODEL" \
+        --seed "$SEED" \
+        --variant "$VARIANT"
 done
 
 

@@ -1,6 +1,11 @@
 """
-Per-text anisotropy and centroid scores at every hidden-state layer. Per text and layer, H ∈ ℝ^{T×D} are the token
-states after dropping the first --skip_tokens, μ = (1/T) Σ_t h_t their centroid and μ̂ = μ / ‖μ‖:
+Per-text anisotropy and centroid scores at every hidden-state layer, for each token-selection variant (VARIANTS):
+    all:        all tokens
+    skip10pct:  all but the first 10% of the text's tokens
+    med5:       tokens with ‖h_t‖ > 5 · median_t ‖h_t‖ dropped (per text and layer)
+    med10:      tokens with ‖h_t‖ > 10 · median_t ‖h_t‖ dropped (per text and layer)
+Per text, layer and variant, H ∈ ℝ^{T×D} are the kept token states, μ = (1/T) Σ_t h_t their centroid and μ̂ = μ / ‖μ‖
+(mean_angle pairs neighbours among the kept tokens):
     mean_norm:              (1/T) Σ_t ‖h_t‖                                   (reference)
     mean_angle:             mean_t ∠(h_{t−1}, h_t)                            (reference, the classic angle)
     avg_cosine:             2 / (T(T − 1)) Σ_{i<j} cos(h_i, h_j)
@@ -18,8 +23,9 @@ states after dropping the first --skip_tokens, μ = (1/T) Σ_t h_t their centroi
     token_specific:         (1/T) Σ_t ‖h_t − μ‖² = norm2 − ‖μ‖²
     shared_share:           ‖μ‖² / norm2
     sideways_distance:      (1/T) Σ_t s_t, s_t = ‖h_t − p_t μ̂‖
-Texts with fewer than MIN_TOKENS kept tokens get null. Per layer, every score is evaluated as is (label 1 = machine):
-AUROC and Cohen's d = (mean machine − mean human) / pooled std.
+Texts with fewer than MIN_TOKENS kept tokens at a layer get null there. Per variant and layer, every score is evaluated
+as is (label 1 = machine): AUROC and Cohen's d = (mean machine − mean human) / pooled std. The output holds one entry
+per variant under "variants", each with its metrics and per-text items (tokens_kept per layer).
 """
 
 import os
@@ -60,6 +66,14 @@ SCORE_DEFINITIONS = {
     "sideways_distance": "mean_t ||h_t - p_t mu_hat||, mu_hat = mu / ||mu||",
 }
 SCORES = tuple(SCORE_DEFINITIONS)
+VARIANTS = {
+    "all": "all tokens",
+    "skip10pct": "all but the first 10% of tokens",
+    "med5": "tokens with ||h_t|| > 5 * median_t ||h_t|| dropped (per text and layer)",
+    "med10": "tokens with ||h_t|| > 10 * median_t ||h_t|| dropped (per text and layer)",
+}
+SKIP_SHARE = 0.10
+MEDIAN_FACTORS = {"med5": 5.0, "med10": 10.0}
 
 
 def unit(x: torch.Tensor) -> torch.Tensor:
@@ -108,6 +122,27 @@ def layer_scores(h: torch.Tensor) -> dict[str, torch.Tensor]:
     return scores
 
 
+def variant_mask(h: torch.Tensor, variant: str) -> torch.Tensor:
+    """Tokens a variant keeps per layer: (L + 1, T, D) -> (L + 1, T) bool."""
+    norms = h.norm(dim=-1)
+    keep = torch.ones_like(norms, dtype=torch.bool)
+    if variant == "skip10pct":
+        keep[:, :int(SKIP_SHARE * h.shape[1])] = False
+    elif variant in MEDIAN_FACTORS:
+        keep = norms <= MEDIAN_FACTORS[variant] * norms.median(dim=1, keepdim=True).values
+    return keep
+
+
+def filtered_layer_scores(h: torch.Tensor, keep: torch.Tensor) -> dict[str, torch.Tensor]:
+    """layer_scores with each layer on its own kept tokens; NaN where fewer than MIN_TOKENS remain."""
+    if keep.all() and h.shape[1] >= MIN_TOKENS:
+        return layer_scores(h)
+    nan = torch.full((1,), float("nan"), device=h.device)
+    per_layer = [layer_scores(h[layer:layer + 1, keep[layer]]) if keep[layer].sum() >= MIN_TOKENS else None
+                 for layer in range(h.shape[0])]
+    return {score: torch.cat([nan if scores is None else scores[score] for scores in per_layer]) for score in SCORES}
+
+
 def to_json(values: np.ndarray) -> list[float | None]:
     """NaN as null, so the output is valid JSON."""
     return [float(x) if np.isfinite(x) else None for x in values]
@@ -136,28 +171,28 @@ def evaluate(labels: np.ndarray, scores: np.ndarray) -> dict:
 def run(args: Namespace) -> dict:
     inference = Inference(model_name=args.model)
     test_data = load_data(args=args)["test"]
-    items = []
+    items = {variant: [] for variant in VARIANTS}
     n_layers = None
     for item in tqdm(test_data, desc="Collecting anisotropy scores"):
         hidden_states = inference.run(item, args)["hidden_states"]
         n_layers = len(hidden_states)
-        # Drop the first skip_tokens after collecting the hidden states: (L + 1, T', D).
-        h = torch.stack(hidden_states)[:, args.skip_tokens:].to(inference.device).float()
-        meta = {
-            "label": int(item["label"]), "chars": len(item["text"]),
-            "tokens_before_skip": int(hidden_states[0].shape[0]), "tokens_scored": int(h.shape[1]),
-        }
-        if h.shape[1] < MIN_TOKENS:
-            items.append({**meta, **{score: [None] * n_layers for score in SCORES}})
-            continue
-        scores = layer_scores(h)
-        items.append({**meta, **{score: to_json(v.cpu().numpy()) for score, v in scores.items()}})
+        h = torch.stack(hidden_states).to(inference.device).float()  # (L + 1, T, D)
+        meta = {"label": int(item["label"]), "chars": len(item["text"]), "tokens": int(h.shape[1])}
+        for variant in VARIANTS:
+            keep = variant_mask(h, variant)
+            scores = filtered_layer_scores(h, keep)
+            items[variant].append({**meta, "tokens_kept": keep.sum(dim=1).tolist(),
+                                   **{score: to_json(v.cpu().numpy()) for score, v in scores.items()}})
 
-    labels = np.asarray([item["label"] for item in items])
-    metrics = {}
-    for score in SCORES:
-        values = np.asarray([[np.nan if v is None else v for v in item[score]] for item in items], dtype=float)
-        metrics[score] = [evaluate(labels, values[:, layer]) for layer in range(n_layers)]
+    variants = {}
+    for variant, variant_items in items.items():
+        labels = np.asarray([item["label"] for item in variant_items])
+        metrics = {}
+        for score in SCORES:
+            values = np.asarray([[np.nan if v is None else v for v in item[score]] for item in variant_items],
+                                dtype=float)
+            metrics[score] = [evaluate(labels, values[:, layer]) for layer in range(n_layers)]
+        variants[variant] = {"definition": VARIANTS[variant], "metrics": metrics, "items": variant_items}
 
     return {
         **vars(args),
@@ -168,8 +203,7 @@ def run(args: Namespace) -> dict:
         "layer_numbering": "entry i is hidden_states[i]: 0 = embedding output; 1..L = transformer-layer outputs",
         "auroc_orientation": "score as written, label 1 = machine; AUROC below 0.5 means the score is lower for "
                              "machine text",
-        "metrics": metrics,
-        "items": items,
+        "variants": variants,
     }
 
 
@@ -182,10 +216,12 @@ def main() -> None:
     with open(path, "w") as f:
         json.dump(output, f)
     print(f"Wrote {path}")
-    for score in SCORES:
-        aurocs = [m["auroc"] for m in output["metrics"][score]]
-        best = max(range(len(aurocs)), key=lambda i: abs((aurocs[i] or 0.5) - 0.5))
-        print(f"{score:>22}: most separating layer {best}, AUROC {aurocs[best]}")
+    for variant, entry in output["variants"].items():
+        print(f"--- {variant}: {entry['definition']}")
+        for score in SCORES:
+            aurocs = [m["auroc"] for m in entry["metrics"][score]]
+            best = max(range(len(aurocs)), key=lambda i: abs((aurocs[i] or 0.5) - 0.5))
+            print(f"{score:>22}: most separating layer {best}, AUROC {aurocs[best]}")
 
 
 def parse_args() -> Namespace:
@@ -193,7 +229,6 @@ def parse_args() -> Namespace:
     parser.add_argument("--model", type=str, default="l8b")
     parser.add_argument("--dataset", type=str, default="drlXDomainLen_wiki_500_tokens")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--skip_tokens", type=int, default=10)
     return parser.parse_args()
 
 

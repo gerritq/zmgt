@@ -18,16 +18,20 @@ nvidia-smi
 ROOT_DIR="${BASE_ZMGT:-$(pwd)}"
 cd "${ROOT_DIR}"
 
-MODELS=("q8b") # "q8b" "q8bb" "l8b" "l8bb"
+MODELS=("m8b" "q8b" "l8b") # "q8b" "q8bb" "l8b" "l8bb"
 
 DATASETS=(
-           "drlXDomainLen_wiki_500_tokens" 
-            "drlXDomainLen_news_500_tokens" 
-              "drlXDomainLen_novel_500_tokens" 
-                "drlXDomainLen_seo_500_tokens" 
+        #    "drlXDomainLen_wiki_500_tokens" 
+        #     "drlXDomainLen_news_500_tokens" 
+            #   "drlXDomainLen_novel_500_tokens" 
+            #     "drlXDomainLen_seo_500_tokens" 
         #   "drlXDomainLen_wiki_2000_chars"
         #    "drlXAttacks_character_substitution"
         #   "drlXAttacks_decoder_paraphrasing"
+
+          "drlXAttacks_decoder_paraphrasing"
+  "drlXAttacks_character_deletion"
+  "raidDomain_wiki"
           )
 
 SEEDS=(42) # 42 43 44
@@ -106,19 +110,38 @@ SAVE_SCORES=1 # 1 = store per-text scores in the output json
 # ----------------------------------------------------
 # Per-text anisotropy at every hidden-state layer (src/geometric_metrics/aniso.py)
 # ----------------------------------------------------
-ANISO_SKIP_TOKENS=10
+# computes all token variants (all, skip10pct, med5, med10) in one run, see the module docstring
+
+# for MODEL in "${MODELS[@]}"; do
+#     for SEED in "${SEEDS[@]}"; do
+#         for DATASET in "${DATASETS[@]}"; do
+#             echo "------------------------------------------------"
+#             echo "Running anisotropy: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
+#             echo "------------------------------------------------"
+#             PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.geometric_metrics.aniso \
+#                 --model "$MODEL" \
+#                 --dataset "$DATASET" \
+#                 --seed "$SEED"
+#         done
+#     done
+# done
+
+
+# ----------------------------------------------------
+# Logit lens and attention vs. MLP updates per layer (src/geometric_metrics/across_exp.py)
+# ----------------------------------------------------
+# computes all token variants (all, skip10pct, med5, med10) in one run, see the module docstring
 
 for MODEL in "${MODELS[@]}"; do
     for SEED in "${SEEDS[@]}"; do
         for DATASET in "${DATASETS[@]}"; do
             echo "------------------------------------------------"
-            echo "Running anisotropy: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
+            echo "Running across-layer experiments: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
             echo "------------------------------------------------"
-            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.geometric_metrics.aniso \
+            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.geometric_metrics.across_exp \
                 --model "$MODEL" \
                 --dataset "$DATASET" \
-                --seed "$SEED" \
-                --skip_tokens "$ANISO_SKIP_TOKENS"
+                --seed "$SEED"
         done
     done
 done

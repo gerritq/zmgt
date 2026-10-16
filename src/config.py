@@ -30,7 +30,8 @@ class Config:
         "l8b": "meta-llama/Llama-3.1-8B-Instruct",
         "g1b": "google/gemma-3-1b-it",
         "g4b": "google/gemma-3-4b-it",
-        "g12b": "google/gemma-3-12b-it"
+        "g12b": "google/gemma-3-12b-it",
+        "m8b": "mistralai/Ministral-8B-Instruct-2410"
 
     })
 

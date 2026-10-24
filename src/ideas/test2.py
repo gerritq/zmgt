@@ -1,10 +1,48 @@
-"""Candidate-calibrated hidden-state geometry.
+"""Layer-update features measured against the embedding and the previous token.
 
-For each text, tokenize the untouched text, use the first j token IDs as a
-prefix, and the next T IDs as the real continuation. Sample k continuations
-of exactly T tokens from the scoring model. A batched forward pass over the
-real and sampled sequences keeps only continuation hidden states H_i at the
-requested layers. Nothing is written to disk; results are printed only.
+With e_t = hidden_states[0] (embeddings), h_t^(l) = hidden_states[l] and the
+layer update delta_t^(l) = h_t^(l) - h_t^(l-1), for each text and layer l >= 1:
+  E: mean_t angle(h_t^(l), e_t)
+       how far the token's direction has moved from its embedding
+  A: mean_t angle(delta_t^(l), delta_{t-1}^(l))
+       whether the layer moves neighbouring tokens in similar directions
+  B: mean_t angle(h_t^(l) - e_t, h_t^(l-1) - e_t), l >= 2
+       whether the displacement from the embedding keeps its direction
+  M: mean_t ||delta_t^(l) - delta_{t-1}^(l)|| / (||h_t^(l-1) - h_{t-1}^(l-1)|| + eps)
+       how much the layer changes a token's position relative to its neighbour
+Each angle feature X also has a magnitude twin Xn: mean_t ||a - b|| for the same
+two vectors a, b (En: ||h_t^(l) - e_t||, An: ||delta_t - delta_{t-1}||,
+Bn: ||h_t^(l) - h_t^(l-1)|| = ||delta_t^(l)||).
+Variants:
+  Er:  mean_t ||h_t^(l) - e_t|| / ||h_t^(l)||, En without the growth of norms
+  S:   mean_t ||h_t^(l) - e_t|| / sum_{j=1..l} ||delta_t^(j)||, l >= 2
+       straightness of the path from the embedding (1 = straight line)
+  Bk:  B with a gap of k layers, angle(h_t^(l) - e_t, h_t^(l-k) - e_t), l >= k + 1
+  EnB: En / B, per text
+Within / across angles, with theta_t = angle(h_t^(l), h_{t-1}^(l)) and
+phi_t = angle(h_t^(l), h_t^(l-1)) (layer 1 against the embeddings):
+  within:        mean_t theta_t, the step to the previous token in the same layer
+  across:        mean_t phi_t, the step from the previous layer for the same token
+  joint:         mean_t sqrt(theta_t * phi_t), the per-token geometric mean
+  joint_means:   sqrt(mean_t theta_t * mean_t phi_t), the geometric mean of the means
+  joint_lagk:    joint with the within angle lagged by k tokens,
+                 angle(h_t^(l), h_{t-k}^(l))
+Displacement from the embedding, with E_t^(l) = angle(h_t^(l), e_t):
+  embed_disp:     mean_t ||h_t^(l) - e_t|| / ||e_t||, the change in direction and
+                  magnitude relative to the embedding's size; at the last layer
+                  (the final state before the logits) this is the endpoint
+                  displacement D = sqrt((r - 1)^2 + 2r(1 - cos E)), r = ||f_t|| / ||e_t||
+  embed_progress: mean_t (E_t^(l) - E_t^(l-1)) / phi_t, l >= 2, the share of the
+                  layer's rotation that moves the token away from its embedding
+                  (+: further away, -: back towards it); tokens with
+                  phi_t < MIN_ROTATION are left out, nan if none are left
+All features use the same tokens, t >= skip (the first --skip_tokens tokens,
+at most half the text, at least 1, are dropped), except the joint family
+(joint, joint_means, joint_lagk), which all use t >= max(skip, max lag) so
+they are averaged over the same tokens; texts too short for that are nan.
+No hypothesis on direction, so each
+(feature, layer) AUROC is flipped to >= 0.5 and its sign printed (+1: machine
+higher, -1: human higher). Results are printed only.
 """
 
 from argparse import ArgumentParser, Namespace
@@ -16,441 +54,193 @@ from tqdm import tqdm
 from src.inference import Inference
 from src.utils import evaluation, load_data
 
+GAPS = (2, 4)
+LAGS = (5, 10, 20)
+FEATURES = (
+    "E", "En", "Er", "S", "A", "An", "B", *(f"B{k}" for k in GAPS), "Bn", "EnB", "M",
+    "within", "across", "embed_disp", "embed_progress",
+    "joint", "joint_means", *(f"joint_lag{k}" for k in LAGS),
+)
+EPS = 1e-6
+# radians; embed_progress leaves out tokens the layer barely rotates
+MIN_ROTATION = 1e-3
+SUMMARY_COLUMNS = 8
+WIDTH = max(8, *(len(name) for name in FEATURES))
 
-class CandidateCalibration:
-    """Compare a real continuation with samples drawn from the same prefix."""
 
+def angle(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    cos = torch.nn.functional.cosine_similarity(a, b, dim=-1, eps=1e-8)
+    return torch.acos(cos.clamp(-1.0, 1.0))
+
+
+class LayerUpdates:
     def __init__(self, args: Namespace) -> None:
         self.args = args
         self.inference = Inference(model_name=args.model, args=args)
         self.model = self.inference.model
         self.tokenizer = self.inference.tokenizer
         self.device = self.inference.device
-        self.layers = self.resolve_layers(args.layers)
-        self.ranks = tuple(sorted(set(args.ranks)))
-        self.global_directions: dict[int, torch.Tensor] = {}
+        self.n_layers = self.model.config.num_hidden_layers
+        layers = list(range(1, self.n_layers + 1)) if args.layers is None else args.layers
+        if any(layer < 1 or layer > self.n_layers for layer in layers):
+            raise ValueError(f"--layers must be hidden-state indices in 1..{self.n_layers}.")
+        self.layers = sorted(set(layers))
 
-        if args.n_candidates < 3:
-            raise ValueError("--n_candidates must be at least 3 for leave-one-out calibration.")
-        if not 0.0 < args.prefix_fraction < 1.0:
-            raise ValueError("--prefix_fraction must be strictly between 0 and 1.")
-        if args.max_tokens < 3:
-            raise ValueError("--max_tokens must be at least 3.")
-        if any(rank < 1 for rank in self.ranks):
-            raise ValueError("--ranks must contain positive integers.")
-        if max(self.ranks) > self.model.config.hidden_size:
-            raise ValueError("A requested --ranks value exceeds the model hidden size.")
+    def scores(self, hs: torch.Tensor) -> dict[str, np.ndarray]:
+        """All features from (L + 1, T, d) hidden states; each is (L,) for layers 1..L,
+        nan where a feature is undefined."""
+        hs = hs.float()
+        T = hs.shape[1]
+        s = max(1, min(self.args.skip_tokens, T // 2))
+        e = hs[0]
+        # delta[l - 1] = delta^(l) = h^(l) - h^(l-1)
+        delta = hs[1:] - hs[:-1]
 
-    def resolve_layers(self, layers: list[int] | None) -> list[int]:
-        n_layers = self.model.config.num_hidden_layers
-        chosen = list(range(n_layers + 1)) if layers is None else layers
-        if any(layer < 0 or layer > n_layers for layer in chosen):
-            raise ValueError(f"--layers must be hidden-state indices in 0..{n_layers}.")
-        return sorted(set(chosen))
+        def pad(x: torch.Tensor, k: int) -> torch.Tensor:
+            """Prepend k nans for the first k layers, where x is undefined."""
+            return torch.cat([hs.new_full((k,), float("nan")), x])
 
-    def split_point(self, ids: torch.Tensor) -> int:
-        """Prefix length: floor(prefix_fraction times the tokenized text length)."""
-        return max(1, int(ids.numel() * self.args.prefix_fraction))
+        # tokens t >= s; [s - 1:-1] gives their previous token
+        # disp[l] = h^(l) - e; disp[0] = 0, so B starts at l = 2
+        disp = hs[:, s:] - e[s:]
+        dist = disp.norm(dim=-1)
+        step = delta[:, s:].norm(dim=-1)
+        # E_tok[l - 1] = E_t^(l)
+        E_tok = angle(hs[1:, s:], e[s:].expand_as(hs[1:, s:]))
+        E = E_tok.mean(dim=-1)
+        En = dist[1:].mean(dim=-1)
+        Er = (dist[1:] / (hs[1:, s:].norm(dim=-1) + EPS)).mean(dim=-1)
+        # at l = 1 the path is a single step, so S = 1
+        S = pad((dist[2:] / (step.cumsum(dim=0)[1:] + EPS)).mean(dim=-1), 1)
 
-    def token_ids(self, text: str) -> torch.Tensor | None:
-        """Tokenize the full text (up to max_tokens), preserving its continuation length."""
-        encoded = self.tokenizer(
+        moved = (delta[:, s:] - delta[:, s - 1:-1]).norm(dim=-1)
+        A = angle(delta[:, s:], delta[:, s - 1:-1]).mean(dim=-1)
+        An = moved.mean(dim=-1)
+
+        # Bk[l] compares disp[l] with disp[l - k], for l = k + 1..L
+        B = {k: pad(angle(disp[k + 1:], disp[1:-k]).mean(dim=-1), k) for k in (1, *GAPS)}
+        Bn = pad(step[1:].mean(dim=-1), 1)
+
+        separation = (hs[:-1, s:] - hs[:-1, s - 1:-1]).norm(dim=-1)
+        M = (moved / (separation + EPS)).mean(dim=-1)
+
+        # within: previous token in the same layer; across: same token one layer down
+        theta = angle(hs[1:, s:], hs[1:, s - 1:-1])
+        phi = angle(hs[1:, s:], hs[:-1, s:])
+
+        embed_disp = (dist[1:] / (e[s:].norm(dim=-1) + EPS)).mean(dim=-1)
+        # at l = 1, E^(0) = 0 and E^(1) = phi, so the ratio is 1; start at l = 2
+        rotated = phi[1:] >= MIN_ROTATION
+        progress = (E_tok[1:] - E_tok[:-1]) / phi[1:].clamp_min(MIN_ROTATION)
+        embed_progress = pad(
+            (progress * rotated).sum(dim=-1) / rotated.sum(dim=-1), 1
+        )
+
+        # the joint family on the same tokens, t >= max(s, max lag)
+        start = max(s, *LAGS)
+        if start < T:
+            phi_j = phi[:, start - s:]
+            theta_j = theta[:, start - s:]
+            joint = {1: (theta_j * phi_j).sqrt().mean(dim=-1)}
+            joint_means = (theta_j.mean(dim=-1) * phi_j.mean(dim=-1)).sqrt()
+            for k in LAGS:
+                theta_k = angle(hs[1:, start:], hs[1:, start - k:-k])
+                joint[k] = (theta_k * phi_j).sqrt().mean(dim=-1)
+        else:
+            nan = hs.new_full((hs.shape[0] - 1,), float("nan"))
+            joint = {k: nan for k in (1, *LAGS)}
+            joint_means = nan
+
+        values = (
+            E, En, Er, S, A, An, B[1], *(B[k] for k in GAPS), Bn, En / B[1], M,
+            theta.mean(dim=-1), phi.mean(dim=-1), embed_disp, embed_progress,
+            joint[1], joint_means, *(joint[k] for k in LAGS),
+        )
+        return {name: value.cpu().numpy() for name, value in zip(FEATURES, values)}
+
+    @torch.no_grad()
+    def text_scores(self, text: str) -> dict[str, np.ndarray] | None:
+        ids = self.tokenizer(
             text,
             add_special_tokens=False,
             truncation=True,
             max_length=self.args.max_tokens,
             return_tensors="pt",
-        )["input_ids"][0]
-        if encoded.numel() < 3:
+        )["input_ids"].to(self.device)
+        if ids.shape[1] < 3:
             return None
-        continuation = encoded.numel() - self.split_point(encoded)
-        min_continuation = max(
-            2,
-            (max(self.ranks) + self.args.n_candidates - 2) // (self.args.n_candidates - 1),
-        )
-        return encoded.to(self.device) if continuation >= min_continuation else None
-
-    @torch.no_grad()
-    def continuation_states(
-        self, ids: torch.Tensor, item_index: int
-    ) -> dict[int, torch.Tensor]:
-        """Return {layer: (1+k, T, D)} for real row 0 and sampled rows 1..k."""
-        j = self.split_point(ids)
-        t = ids.numel() - j
-        k = self.args.n_candidates
-        prefix = ids[:j][None]
-        real = ids[j : j + t]
-
-        # Reset per text so sampling is reproducible independently of skipped texts.
-        seed = self.args.seed + item_index
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
-
-        pad_id = self.tokenizer.pad_token_id
-        if pad_id is None:
-            pad_id = self.tokenizer.eos_token_id
-        generated = self.model.generate(
-            input_ids=prefix,
-            attention_mask=torch.ones_like(prefix),
-            do_sample=True,
-            temperature=self.args.temperature,
-            top_p=self.args.top_p,
-            min_new_tokens=t,
-            max_new_tokens=t,
-            num_return_sequences=k,
-            pad_token_id=pad_id,
-            use_cache=True,
-        )
-        candidates = generated[:, j : j + t]
-        if candidates.shape != (k, t):
-            raise RuntimeError(
-                f"Generation returned {tuple(candidates.shape)} candidate tokens; expected {(k, t)}."
-            )
-
-        prefix_batch = prefix.expand(k + 1, -1)
-        continuations = torch.cat([real[None], candidates], dim=0)
-        sequences = torch.cat([prefix_batch, continuations], dim=1)
         outputs = self.model(
-            input_ids=sequences,
-            attention_mask=torch.ones_like(sequences),
+            input_ids=ids,
+            attention_mask=torch.ones_like(ids),
             output_hidden_states=True,
             use_cache=False,
         )
-        return {
-            layer: outputs.hidden_states[layer][:, j : j + t].detach()
-            for layer in self.layers
-        }
+        return self.scores(torch.stack(outputs.hidden_states)[:, 0])
 
-    @staticmethod
-    def shared_share(h: torch.Tensor) -> torch.Tensor:
-        """||mean_t h_t||^2 / mean_t ||h_t||^2 for each sequence: (B,T,D)->(B,)."""
-        numerator = h.mean(dim=1).square().sum(dim=-1)
-        denominator = h.square().sum(dim=-1).mean(dim=1)
-        return numerator / denominator.clamp_min(1e-12)
+    def run(self) -> dict:
+        args = self.args
+        test_data = load_data(args=args)["test"]
+        labels = np.asarray([item["label"] for item in test_data])
 
-    @staticmethod
-    def mean_angle(h: torch.Tensor) -> torch.Tensor:
-        """Mean consecutive-token angle for each sequence."""
-        cosine = torch.nn.functional.cosine_similarity(h[:, :-1], h[:, 1:], dim=-1, eps=1e-12)
-        return torch.acos(cosine.clamp(-1.0, 1.0)).mean(dim=1)
+        rows = [self.text_scores(item["text"]) for item in tqdm(test_data, desc="Scoring texts")]
+        valid = np.asarray([row is not None for row in rows])
+        y = labels[valid]
+        rows = [row for row in rows if row is not None]
 
-    @staticmethod
-    def calibrated_z(real: torch.Tensor, candidates: torch.Tensor) -> float:
-        """(real - candidate mean) / candidate sample SD."""
-        scale = candidates.std(correction=1)
-        if not torch.isfinite(scale) or scale <= 1e-12:
-            return float("nan")
-        return ((real - candidates.mean()) / scale).item()
-
-    @staticmethod
-    def align(vector: torch.Tensor, reference: torch.Tensor) -> torch.Tensor:
-        """Resolve a singular vector's sign using the pooled candidate mean."""
-        return -vector if torch.dot(vector, reference) < 0 else vector
-
-    @staticmethod
-    def top_directions(
-        h: torch.Tensor, rank: int, gram: torch.Tensor | None = None
-    ) -> torch.Tensor:
-        """Top uncentred right-singular directions as orthonormal rows.
-
-        The token Gram matrix is used when T <= D, which is much smaller than
-        forming a D x D covariance for the candidate pools used here.
-        """
-        n, d = h.shape
-        rank = min(rank, n, d)
-        if n <= d:
-            gram = h @ h.T if gram is None else gram
-            eigenvalues, eigenvectors = torch.linalg.eigh(gram)
-            values = eigenvalues[-rank:].flip(0).clamp_min(1e-12)
-            left = eigenvectors[:, -rank:].flip(1)
-            directions = (left.T @ h) / values.sqrt()[:, None]
-        else:
-            gram_d = h.T @ h
-            _, eigenvectors = torch.linalg.eigh(gram_d)
-            directions = eigenvectors[:, -rank:].flip(1).T
-        # Remove small numerical loss of orthogonality from the Gram route.
-        return torch.linalg.qr(directions.T, mode="reduced").Q.T
-
-    def candidate_bases(
-        self, candidates: torch.Tensor
-    ) -> tuple[torch.Tensor, list[torch.Tensor]]:
-        """Top max(r) bases for all candidates and each leave-one-out pool."""
-        k, t, d = candidates.shape
-        pooled = candidates.reshape(k * t, d)
-        rank = max(self.ranks)
-        full = self.top_directions(pooled, rank)
-        loo = []
-        for candidate in range(k):
-            h_loo = torch.cat([candidates[:candidate], candidates[candidate + 1:]], dim=0)
-            loo.append(self.top_directions(h_loo.reshape((k - 1) * t, d), rank))
-        return full, loo
-
-    @staticmethod
-    def alignment(h: torch.Tensor, direction: torch.Tensor) -> torch.Tensor:
-        """Mean token cosine with a direction."""
-        return torch.nn.functional.cosine_similarity(
-            h, direction[None], dim=-1, eps=1e-12
-        ).mean()
-
-    @staticmethod
-    def subspace_share(h: torch.Tensor, directions: torch.Tensor) -> torch.Tensor:
-        """Mean per-token energy fraction in the row span of directions."""
-        projected = (h @ directions.T).square().sum(dim=-1)
-        total = h.square().sum(dim=-1)
-        return (projected / total.clamp_min(1e-12)).mean()
-
-    def direction_scores(
-        self,
-        h: torch.Tensor,
-        full_basis: torch.Tensor,
-        loo_bases: list[torch.Tensor],
-    ) -> dict[str, float]:
-        """Options 2, 3, and the global/local analysis for one layer."""
-        real, candidates = h[0], h[1:]
-        k = candidates.shape[0]
-        candidate_mean = candidates.mean(dim=(0, 1))
-
-        # Option 2a: the mean of all candidate tokens, with exact LOO means.
-        m_mean = torch.nn.functional.normalize(candidate_mean, dim=0)
-        real_mean_alignment = self.alignment(real, m_mean)
-        candidate_mean_alignments = []
-        candidate_sums = candidates.sum(dim=(0, 1))
-        denom = (k - 1) * candidates.shape[1]
-        for i in range(k):
-            m_loo = (candidate_sums - candidates[i].sum(dim=0)) / denom
-            m_loo = torch.nn.functional.normalize(m_loo, dim=0)
-            candidate_mean_alignments.append(self.alignment(candidates[i], m_loo))
-        scores = {
-            "alignment_mean_z": self.calibrated_z(
-                real_mean_alignment, torch.stack(candidate_mean_alignments)
-            )
-        }
-
-        # Option 2b: top uncentred singular direction, sign-aligned to pool mean.
-        m_svd = self.align(full_basis[0], candidate_mean)
-        real_svd_alignment = self.alignment(real, m_svd)
-        candidate_svd_alignments = []
-        loo_svd_directions = []
-        for i in range(k):
-            reference = (
-                candidate_sums - candidates[i].sum(dim=0)
-            ) / denom
-            direction = self.align(loo_bases[i][0], reference)
-            loo_svd_directions.append(direction)
-            candidate_svd_alignments.append(self.alignment(candidates[i], direction))
-        scores["alignment_svd_z"] = self.calibrated_z(
-            real_svd_alignment, torch.stack(candidate_svd_alignments)
-        )
-
-        # Option 3: fraction of each token's energy in the candidate subspace.
-        for rank in self.ranks:
-            real_share = self.subspace_share(real, full_basis[:rank])
-            candidate_shares = torch.stack(
-                [
-                    self.subspace_share(candidates[i], loo_bases[i][:rank])
-                    for i in range(k)
-                ]
-            )
-            scores[f"subspace_r{rank}_z"] = self.calibrated_z(real_share, candidate_shares)
-
-        # Option 5: split each local SVD direction into global and prefix-specific parts.
-        if self.global_directions:
-            g1 = self.global_directions[self.current_layer]
-            global_direction = torch.sign(torch.dot(m_svd, g1)).clamp(min=-1, max=1) * g1
-            if global_direction.norm() <= 1e-12:
-                global_direction = g1
-            residual = m_svd - torch.dot(m_svd, g1) * g1
-            scores["local_global_abs_cos"] = torch.dot(m_svd, g1).abs().item()
-
-            real_global = self.alignment(real, global_direction)
-            real_specific = (
-                self.alignment(real, torch.nn.functional.normalize(residual, dim=0))
-                if residual.norm() > 1e-8
-                else torch.tensor(float("nan"), device=h.device)
-            )
-            candidate_global, candidate_specific = [], []
-            for i, direction in enumerate(loo_svd_directions):
-                signed_global = torch.sign(torch.dot(direction, g1)).clamp(min=-1, max=1) * g1
-                if signed_global.norm() <= 1e-12:
-                    signed_global = g1
-                specific = direction - torch.dot(direction, g1) * g1
-                candidate_global.append(self.alignment(candidates[i], signed_global))
-                candidate_specific.append(
-                    self.alignment(
-                        candidates[i], torch.nn.functional.normalize(specific, dim=0)
-                    )
-                    if specific.norm() > 1e-8
-                    else torch.tensor(float("nan"), device=h.device)
-                )
-            scores["alignment_svd_global_z"] = self.calibrated_z(
-                real_global, torch.stack(candidate_global)
-            )
-            scores["alignment_svd_specific_z"] = self.calibrated_z(
-                real_specific, torch.stack(candidate_specific)
-            )
-        return scores
-
-    def score_layer(self, h: torch.Tensor, layer: int) -> dict[str, float]:
-        """All candidate-calibrated scores for one (1+k,T,D) tensor."""
-        h = h.float()
-        self.current_layer = layer
-        real, candidates = h[0], h[1:]
-
-        # Option 1 and inexpensive scalar controls.
-        shares = self.shared_share(h)
-        norms = h.norm(dim=-1).mean(dim=1)
-        angles = self.mean_angle(h)
-        combined = shares.clamp_min(1e-12).log() - angles.clamp_min(1e-12).log()
-        scores = {
-            "shared_share_z": self.calibrated_z(shares[0], shares[1:]),
-            "mean_norm_z": self.calibrated_z(norms[0], norms[1:]),
-            "mean_angle_z": self.calibrated_z(angles[0], angles[1:]),
-            "shared_angle_z": self.calibrated_z(combined[0], combined[1:]),
-        }
-
-        # Option 4: real distance to all-candidate centroid versus candidate LOO distances.
-        centroids = h.mean(dim=1)
-        candidate_sum = centroids[1:].sum(dim=0)
-        candidate_centre = candidate_sum / candidates.shape[0]
-        real_distance = (centroids[0] - candidate_centre).norm()
-        loo_distances = torch.stack(
-            [
-                (
-                    centroids[i + 1]
-                    - (candidate_sum - centroids[i + 1]) / (candidates.shape[0] - 1)
-                ).norm()
-                for i in range(candidates.shape[0])
-            ]
-        )
-        scores["centroid_distance_z"] = self.calibrated_z(real_distance, loo_distances)
-
-        full_basis, loo_bases = self.candidate_bases(candidates)
-        scores.update(self.direction_scores(h, full_basis, loo_bases))
-        return scores
-
-    @torch.no_grad()
-    def fit_global(self, data: list[dict]) -> None:
-        """Fit corpus-wide uncentred g1 on real continuation states, per layer."""
-        grams: dict[int, torch.Tensor] = {}
-        totals: dict[int, torch.Tensor] = {}
-        n_fit = 0
-        for item in tqdm(data, desc="Fitting global g1 on real continuations"):
-            ids = self.token_ids(item["text"])
-            if ids is None:
-                continue
-            j = self.split_point(ids)
-            outputs = self.model(
-                input_ids=ids[None],
-                attention_mask=torch.ones_like(ids[None]),
-                output_hidden_states=True,
-                use_cache=False,
-            )
-            for layer in self.layers:
-                h = outputs.hidden_states[layer][0, j:].float()
-                if layer not in grams:
-                    grams[layer] = torch.zeros(
-                        h.shape[1], h.shape[1], device=h.device, dtype=torch.float32
-                    )
-                    totals[layer] = torch.zeros(h.shape[1], device=h.device, dtype=torch.float32)
-                grams[layer].addmm_(h.T, h)
-                totals[layer] += h.sum(dim=0)
-            n_fit += 1
-
-        if not n_fit:
-            raise ValueError("No texts were long enough to fit global directions.")
-        for layer, gram in grams.items():
-            direction = torch.nn.functional.normalize(totals[layer], dim=0)
-            for _ in range(50):
-                direction = torch.nn.functional.normalize(gram @ direction, dim=0)
-            self.global_directions[layer] = direction
-        print(f"Global g1 fitted on {n_fit} real continuations from {self.args.fit_split}.")
-
-    @staticmethod
-    def evaluate(labels: np.ndarray, values: np.ndarray, sign: int) -> dict | None:
-        valid = np.isfinite(values)
-        if valid.sum() < 2 or np.unique(labels[valid]).size < 2:
-            return None
-        result = evaluation(labels[valid], sign * values[valid])
-        result["n_scored"] = int(valid.sum())
-        result["mean_z_human"] = float(values[valid & (labels == 0)].mean())
-        result["mean_z_machine"] = float(values[valid & (labels == 1)].mean())
-        return result
-
-    def run(self, args: Namespace) -> dict:
-        splits = load_data(args=args)
-        test_data = splits["test"]
-        labels_all = np.asarray([item["label"] for item in test_data])
-
-        if args.global_analysis:
-            if args.fit_split not in splits:
-                raise ValueError(f"--fit_split {args.fit_split!r} is unavailable.")
-            self.fit_global(splits[args.fit_split])
-
-        per_layer: dict[int, list[dict | None]] = {layer: [] for layer in self.layers}
-        prefix_lengths, continuation_lengths = [], []
-        for index, item in enumerate(tqdm(test_data, desc="Sampling and scoring continuations")):
-            ids = self.token_ids(item["text"])
-            if ids is None:
-                for layer in self.layers:
-                    per_layer[layer].append(None)
-                continue
-            j = self.split_point(ids)
-            prefix_lengths.append(j)
-            continuation_lengths.append(ids.numel() - j)
-            hidden = self.continuation_states(ids, index)
-            for layer in self.layers:
-                per_layer[layer].append(self.score_layer(hidden[layer], layer))
-
-        signs = {
-            "mean_angle_z": -1,
-            "centroid_distance_z": -1,
-            "local_global_abs_cos": 1,
-        }
-        results = {}
-        n_skipped = sum(row is None for row in per_layer[self.layers[0]])
         print(
-            f"\nCandidate calibration | model={args.model} dataset={args.dataset} "
-            f"prefix={args.prefix_fraction:.1%} of each text, full remainder sampled "
-            f"| k={args.n_candidates} r={list(self.ranks)} | skipped={n_skipped}"
+            f"\nLayer-update features | model={args.model} dataset={args.dataset} "
+            f"| scored={valid.sum()} skipped={(~valid).sum()} skip_tokens={args.skip_tokens}"
         )
-        print(
-            f"Observed prefix lengths: {min(prefix_lengths)}..{max(prefix_lengths)} "
-            f"(mean {np.mean(prefix_lengths):.1f}); continuation lengths: "
-            f"{min(continuation_lengths)}..{max(continuation_lengths)} "
-            f"(mean {np.mean(continuation_lengths):.1f})."
-        )
-        print("AUROC is oriented so higher detector score means machine.")
-        print("For mean_angle_z and centroid_distance_z, the raw z-score is negated for AUROC.")
+        print("AUROC is flipped to >= 0.5; sign=+1: machine higher, sign=-1: human higher.")
 
-        for layer in self.layers:
-            rows = per_layer[layer]
-            names = next(row for row in rows if row is not None).keys()
-            values = {
-                name: np.asarray(
-                    [np.nan if row is None else row[name] for row in rows], dtype=float
-                )
-                for name in names
-            }
-            metrics = {
-                name: self.evaluate(labels_all, value, signs.get(name, 1))
-                for name, value in values.items()
-            }
-            results[layer] = metrics
-            print(f"\n=== hidden_states[{layer}] ===")
+        results = {name: {} for name in FEATURES}
+        for name in FEATURES:
+            print(f"\n=== {name} ===")
             print(
-                f"{'score':>30} {'human mean':>14} {'machine mean':>16} "
-                f"{'AUROC':>9} {'TPR@5%':>9} {'n':>6}"
+                f"{'layer':>6} {'sign':>5} {'human mean':>12} {'machine mean':>14} "
+                f"{'AUROC':>8} {'TPR@5%':>8}"
             )
-            for name, metric in metrics.items():
-                if metric is None:
-                    print(f"{name:>30} {'--':>14} {'--':>16} {'--':>9} {'--':>9} {'0':>6}")
+            for layer in self.layers:
+                values = np.asarray([row[name][layer - 1] for row in rows])
+                # the joint family is nan for texts too short for the lags; score the rest
+                keep = ~np.isnan(values)
+                values, y_kept = values[keep], y[keep]
+                if len(np.unique(y_kept)) < 2:
                     continue
+                sign = 1
+                metric = evaluation(y_kept, values)
+                if metric["auroc"] < 0.5:
+                    sign = -1
+                    metric = evaluation(y_kept, -values)
+                metric["sign"] = sign
+                results[name][layer] = metric
                 print(
-                    f"{name:>30} {metric['mean_z_human']:>14.4f} "
-                    f"{metric['mean_z_machine']:>16.4f} {metric['auroc']:>9.4f} "
-                    f"{metric['tpr_at_fpr_0_05']:>9.4f} {metric['n_scored']:>6}"
+                    f"{layer:>6} {sign:>+5d} {values[y_kept == 0].mean():>12.4f} "
+                    f"{values[y_kept == 1].mean():>14.4f} "
+                    f"{metric['auroc']:>8.4f} {metric['tpr_at_fpr_0_05']:>8.4f}"
                 )
+
+        print("\n=== Summary: AUROC by layer ===")
+        for i in range(0, len(FEATURES), SUMMARY_COLUMNS):
+            names = FEATURES[i:i + SUMMARY_COLUMNS]
+            print(f"\n{'layer':>6} " + " ".join(f"{name:>{WIDTH}}" for name in names))
+            for layer in self.layers:
+                cells = [
+                    f"{results[name][layer]['auroc']:>{WIDTH}.4f}"
+                    if layer in results[name] else f"{'-':>{WIDTH}}"
+                    for name in names
+                ]
+                print(f"{layer:>6} " + " ".join(cells))
+
+        print("\n=== Best layer per feature ===")
+        for name in FEATURES:
+            if not results[name]:
+                continue
+            layer, metric = max(results[name].items(), key=lambda kv: kv[1]["auroc"])
+            print(
+                f"{name:>{WIDTH}}: layer {layer:>3}  sign={metric['sign']:+d}  "
+                f"AUROC={metric['auroc']:.4f}"
+            )
         return results
 
 
@@ -459,54 +249,20 @@ def parse_args() -> Namespace:
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--max_tokens", type=int, default=1024)
+    parser.add_argument("--skip_tokens", type=int, default=10)
     parser.add_argument(
-        "--prefix_fraction", type=float, default=0.1,
-        help="Fraction of each tokenized text used as prefix; the remainder is the continuation.",
-    )
-    parser.add_argument(
-        "--max_tokens", type=int, default=1024,
-        help="Maximum full-text token count before the 10%/90% split.",
-    )
-    parser.add_argument("--n_candidates", type=int, default=5, help="Number of sampled continuations k.")
-    parser.add_argument(
-        "--layers",
-        type=int,
-        nargs="+",
-        default=None,
-        help="Hidden-state indices; default is every layer, including embeddings and the final layer.",
-    )
-    parser.add_argument(
-        "--ranks",
-        type=int,
-        nargs="+",
-        default=[1, 5, 20],
-        help="Candidate subspace ranks.",
-    )
-    parser.add_argument("--temperature", type=float, default=1.0)
-    parser.add_argument("--top_p", type=float, default=1.0)
-    parser.add_argument(
-        "--global_analysis",
-        type=int,
-        choices=(0, 1),
-        default=1,
-        help="Fit global uncentred g1 and print global/prefix-specific alignment scores.",
-    )
-    parser.add_argument(
-        "--fit_split",
-        type=str,
-        choices=("train", "val", "test"),
-        default="train",
-        help="Split used for the label-free global g1 analysis.",
+        "--layers", type=int, nargs="+", default=None,
+        help="Hidden-state indices; default is every transformer layer (1..L).",
     )
     args = parser.parse_args()
-    args.global_analysis = bool(args.global_analysis)
     args.model_name = args.model
     return args
 
 
 def main() -> None:
     args = parse_args()
-    CandidateCalibration(args).run(args)
+    LayerUpdates(args).run()
 
 
 if __name__ == "__main__":

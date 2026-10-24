@@ -28,19 +28,19 @@ done
 # ----------------------------------------------------
 # f_aniso
 # ----------------------------------------------------
-# one PDF per model and figure with all domains (datasets) in output/metrics/aniso
+# machine - human energy gap and its centroid / token-specific parts by relative depth, one panel per model
+# (l8b, m8b, q8b), mean over the four domains in output/metrics/aniso
 # VARIANT: all | skip10pct (first 10% of tokens dropped) | med5 / med10 (tokens with ||h_t|| > 5 / 10 x median dropped)
-# models: every model with aniso files in the folder
+# SMOOTH: 1 = centred 5-layer moving average
 VARIANT="med5"
+SMOOTH=1
 SEED=42
-ANISO_MODELS=$(ls "${ROOT_DIR}"/output/metrics/aniso/aniso_*_s${SEED}.json 2>/dev/null \
-    | xargs -n1 basename | cut -d_ -f2 | sort -u)
-for MODEL in $ANISO_MODELS; do
-    PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_aniso \
-        --model "$MODEL" \
-        --seed "$SEED" \
-        --variant "$VARIANT"
-done
+SMOOTH_FLAG=""
+[ "$SMOOTH" = "1" ] && SMOOTH_FLAG="--smooth"
+PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_aniso \
+    --seed "$SEED" \
+    --variant "$VARIANT" \
+    $SMOOTH_FLAG
 
 
 # ----------------------------------------------------

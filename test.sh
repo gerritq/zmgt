@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_test
+#SBATCH --job-name=zmgt_decom
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
-#SBATCH --time=00:45:00
+#SBATCH --time=00:30:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=30GB
 #SBATCH --partition=gpu,nmes_gpu,interruptible_gpu
@@ -16,13 +16,13 @@ cd "${ROOT_DIR}"
 
 MODELS=("l8b")
 DATASETS=(
-       "drlXAttacks_character_deletion"
-    #   "drlXAttacks_decoder_paraphrasing"
+    #    "drlXAttacks_character_deletion"
+       "drlXAttacks_decoder_paraphrasing"
      "raidDomain_wiki"
     "drlXDomain_academic"
 #   "drlXAttacks_character_deletion"
 #  "drlXDomain_academic"
- "samplingTemperature_1_0"
+#  "samplingTemperature_1_0"
 # "editlens_amazon_reviews" "editlens_fineweb_edu"
 #   "samplingTemperature_0_9"
 #      "samplingTemperature_1_0"
@@ -38,7 +38,7 @@ for MODEL in "${MODELS[@]}"; do
             echo "------------------------------------------------"
             echo "Running test: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
             echo "------------------------------------------------"
-            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.ideas.test2 \
+            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.ideas.test \
                 --model "$MODEL" \
                 --dataset "$DATASET" \
                 --seed "$SEED"

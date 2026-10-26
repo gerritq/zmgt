@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_aniso
+#SBATCH --job-name=zmgt_desc2
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --time=01:00:00
 #SBATCH --gres=gpu:1
-#SBATCH --mem=30GB
+#SBATCH --mem=50GB
 #SBATCH --partition=gpu,nmes_gpu
 #SBATCH --constraint=h200|h100|a100|a100_40g|a100_80g
 #SBATCH --exclude=erc-hpc-comp054,erc-hpc-comp048
@@ -18,20 +18,20 @@ nvidia-smi
 ROOT_DIR="${BASE_ZMGT:-$(pwd)}"
 cd "${ROOT_DIR}"
 
-MODELS=("m8b" "q8b" "l8b") # "q8b" "q8bb" "l8b" "l8bb"
+MODELS=("q8b" "m8b") # "q8b" "q8bb" "l8b" "l8bb"
 
 DATASETS=(
-        #    "drlXDomainLen_wiki_500_tokens" 
-        #     "drlXDomainLen_news_500_tokens" 
+            "drlXDomainLen_wiki_500_tokens" 
+             "drlXDomainLen_news_500_tokens" 
             #   "drlXDomainLen_novel_500_tokens" 
             #     "drlXDomainLen_seo_500_tokens" 
         #   "drlXDomainLen_wiki_2000_chars"
         #    "drlXAttacks_character_substitution"
         #   "drlXAttacks_decoder_paraphrasing"
 
-          "drlXAttacks_decoder_paraphrasing"
-  "drlXAttacks_character_deletion"
-  "raidDomain_wiki"
+#           "drlXAttacks_decoder_paraphrasing"
+#   "drlXAttacks_character_deletion"
+#   "raidDomain_wiki"
           )
 
 SEEDS=(42) # 42 43 44
@@ -132,13 +132,33 @@ SAVE_SCORES=1 # 1 = store per-text scores in the output json
 # ----------------------------------------------------
 # computes all token variants (all, skip10pct, med5, med10) in one run, see the module docstring
 
+# for MODEL in "${MODELS[@]}"; do
+#     for SEED in "${SEEDS[@]}"; do
+#         for DATASET in "${DATASETS[@]}"; do
+#             echo "------------------------------------------------"
+#             echo "Running across-layer experiments: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
+#             echo "------------------------------------------------"
+#             PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.geometric_metrics.across_exp \
+#                 --model "$MODEL" \
+#                 --dataset "$DATASET" \
+#                 --seed "$SEED"
+#         done
+#     done
+# done
+
+
+# ----------------------------------------------------
+# Dispersion, norm, angle/magnitude, ppl and shared / per-layer PCA (src/geometric_metrics/desc.py)
+# ----------------------------------------------------
+# runs the model twice (pass 1: scores and PCA sums, pass 2: projections), output in output/desc2
+
 for MODEL in "${MODELS[@]}"; do
     for SEED in "${SEEDS[@]}"; do
         for DATASET in "${DATASETS[@]}"; do
             echo "------------------------------------------------"
-            echo "Running across-layer experiments: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
+            echo "Running desc2: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
             echo "------------------------------------------------"
-            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.geometric_metrics.across_exp \
+            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.geometric_metrics.desc \
                 --model "$MODEL" \
                 --dataset "$DATASET" \
                 --seed "$SEED"

@@ -1,9 +1,18 @@
-"""Per-layer shared-energy scores for a text's hidden states.
+"""Per-layer change decomposition scores for a text's hidden states.
 
-After dropping the first ``SKIP_TOKENS`` tokens, this compares the energy in
-the text mean with the energy in its top 1 and top 5 uncentred principal
-components. Hidden-state index 0 is the embedding output; indices 1..L are
-the corresponding transformer-layer outputs.
+For a token's change Δ relative to a base state b, split Δ into the part along b and the rest:
+
+  Δ_∥ = (Δ · b / ‖b‖²) b,   Δ_⊥ = Δ − Δ_∥
+
+and keep the signed length Δ · b / ‖b‖ (> 0 = the state grows along b) and ‖Δ_⊥‖. Three kinds of change:
+
+  across      Δ = h_t^ℓ − h_t^{ℓ−1},  b = h_t^{ℓ−1}               (the same token at the previous layer)
+  within      Δ = h_t^ℓ − h_{t−1}^ℓ,  b = h_{t−1}^ℓ               (the previous token at the same layer)
+  context{k}  Δ = h_t^ℓ − c_t^ℓ,     b = c_t^ℓ = mean_{j=1..k} h_{t−j}^ℓ   (the mean of the k previous tokens)
+
+context1 equals within. Each text's score at a layer is the mean over its tokens. The first ``SKIP_TOKENS`` tokens are
+dropped before anything is computed: the first token's norm is far larger and would dominate every mean. Hidden-state
+index 0 is the embedding output; indices 1..L are the transformer-layer outputs (across is NaN at 0).
 """
 
 from argparse import ArgumentParser, Namespace
@@ -15,61 +24,52 @@ from tqdm import tqdm
 from src.inference import Inference
 from src.utils import evaluation, load_data
 
-SKIP_TOKENS = 10
-TOP_K = (1, 5)
-SCORE_NAMES = ("mean_centroid", "top1_uncentred", "top5_uncentred")
+SKIP_TOKENS = 1
+CONTEXT_K = (1, 4, 8, 16)
+CHANGES = ("across", "within", *(f"context{k}" for k in CONTEXT_K))
+PARTS = ("parallel", "perpendicular")
+SCORE_NAMES = tuple(f"{change}_{part}" for change in CHANGES for part in PARTS)
 
 
-class SharedShare:
-    """Measure the fraction of token energy in a shared text direction/subspace.
+class Decomposition:
+    """Mean parallel and perpendicular part of each kind of change, per layer."""
 
-    For the retained hidden-state matrix H in R^(T x D):
-
-      mean_centroid    = ||mean_t h_t||^2 / mean_t ||h_t||^2
-      top{k}_uncentred = sum_{i=1}^k s_i(H)^2 / sum_i s_i(H)^2
-
-    The latter is uncentred PCA/SVD. Equivalently, it is the mean squared
-    norm of the tokens projected onto the top-k right-singular subspace,
-    divided by their total mean squared norm.
-    """
-
-    METHOD = "shared_share"
+    METHOD = "change_decomposition"
 
     def __init__(self, args: Namespace) -> None:
         self.args = args
         self.inference = Inference(model_name=args.model)
 
     @staticmethod
-    def score_layer(h: torch.Tensor) -> dict[str, float]:
-        """Return all scores for one layer's retained states, shaped (T, D)."""
-        h = h.float()
-        total_energy = h.square().sum()
-        if h.shape[0] == 0 or not torch.isfinite(total_energy) or total_energy <= 0:
-            return {name: float("nan") for name in SCORE_NAMES}
+    def decompose(delta: torch.Tensor, base: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Signed length of delta along base and the length of the rest: (..., D), (..., D) -> (...,), (...,)."""
+        unit = base / base.norm(dim=-1, keepdim=True)
+        parallel = (delta * unit).sum(dim=-1)
+        return parallel, (delta - parallel[..., None] * unit).norm(dim=-1)
 
-        # Since mean_t ||h_t||^2 = ||H||_F^2 / T, this is exactly the
-        # requested ||h_bar||^2 / mean_t ||h_t||^2.
-        centroid_share = h.mean(dim=0).square().sum() * h.shape[0] / total_energy
-
-        # Singular-value energy equals projection energy. svdvals avoids
-        # constructing singular vectors because only the energy share is used.
-        singular_energy = torch.linalg.svdvals(h).square()
-        scores = {"mean_centroid": centroid_share.item()}
-        for k in TOP_K:
-            scores[f"top{k}_uncentred"] = (singular_energy[:k].sum() / total_energy).item()
-        return scores
+    @staticmethod
+    def context(h: torch.Tensor, k: int) -> torch.Tensor:
+        """Mean of the k previous tokens for positions k..T−1: (L + 1, T, D) -> (L + 1, T − k, D)."""
+        sums = torch.cat([torch.zeros_like(h[:, :1]), h.cumsum(dim=1)], dim=1)  # sums[:, t] = Σ_{j<t} h_j
+        return (sums[:, k:-1] - sums[:, :-k - 1]) / k
 
     def score(self, hidden_states: tuple[torch.Tensor, ...]) -> dict[str, np.ndarray]:
         """Return one (L+1,) array per score; too-short texts produce NaNs."""
-        n_layers = len(hidden_states)
-        if hidden_states[0].shape[0] <= SKIP_TOKENS:
+        h = torch.stack(hidden_states)[:, SKIP_TOKENS:].to(self.inference.device).float()  # (L + 1, T, D)
+        n_layers = h.shape[0]
+        if h.shape[1] <= max(CONTEXT_K):
             return {name: np.full(n_layers, np.nan) for name in SCORE_NAMES}
 
-        per_layer = [self.score_layer(h[SKIP_TOKENS:]) for h in hidden_states]
-        return {
-            name: np.asarray([layer_scores[name] for layer_scores in per_layer], dtype=float)
-            for name in SCORE_NAMES
+        nan = torch.full((1,), float("nan"), device=h.device)
+        parts = {
+            "across": [torch.cat([nan, part.mean(dim=1)]) for part in self.decompose(h[1:] - h[:-1], h[:-1])],
+            "within": [part.mean(dim=1) for part in self.decompose(h[:, 1:] - h[:, :-1], h[:, :-1])],
         }
+        for k in CONTEXT_K:
+            base = self.context(h, k)
+            parts[f"context{k}"] = [part.mean(dim=1) for part in self.decompose(h[:, k:] - base, base)]
+        return {f"{change}_{part}": values.cpu().numpy()
+                for change, both in parts.items() for part, values in zip(PARTS, both)}
 
     @staticmethod
     def evaluate(labels: np.ndarray, scores: np.ndarray) -> dict | None:
@@ -111,14 +111,16 @@ class SharedShare:
         }
 
         print(f"\n{self.METHOD} | model: {args.model} | dataset: {args.dataset} | "
-              f"seed: {args.seed} | first {SKIP_TOKENS} tokens dropped")
-        print(f"{'layer':>7}" + "".join(f"{name:>24}" for name in SCORE_NAMES))
-        for layer in range(n_layers):
-            cells = []
-            for name in SCORE_NAMES:
-                result = metrics[name][layer]
-                cells.append(f"{result['auroc']:.4f}" if result else "--")
-            print(f"{layer:>7}" + "".join(f"{cell:>24}" for cell in cells))
+              f"seed: {args.seed} | first {SKIP_TOKENS} token(s) dropped | AUROC, machine positive")
+        for part in PARTS:
+            print(f"\n{part}")
+            print(f"{'layer':>7}" + "".join(f"{change:>12}" for change in CHANGES))
+            for layer in range(n_layers):
+                cells = []
+                for change in CHANGES:
+                    result = metrics[f"{change}_{part}"][layer]
+                    cells.append(f"{result['auroc']:.4f}" if result else "--")
+                print(f"{layer:>7}" + "".join(f"{cell:>12}" for cell in cells))
 
         return {"metrics": metrics, "means": means, "scores": values, "labels": labels}
 
@@ -134,7 +136,7 @@ def parse_args() -> Namespace:
 def main() -> None:
     args = parse_args()
     args.model_name = args.model
-    SharedShare(args).run(args)
+    Decomposition(args).run(args)
 
 
 if __name__ == "__main__":

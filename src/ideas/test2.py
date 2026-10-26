@@ -28,14 +28,18 @@ phi_t = angle(h_t^(l), h_t^(l-1)) (layer 1 against the embeddings):
   joint_lagk:    joint with the within angle lagged by k tokens,
                  angle(h_t^(l), h_{t-k}^(l))
 Displacement from the embedding, with E_t^(l) = angle(h_t^(l), e_t):
-  embed_disp:     mean_t ||h_t^(l) - e_t|| / ||e_t||, the change in direction and
-                  magnitude relative to the embedding's size; at the last layer
-                  (the final state before the logits) this is the endpoint
-                  displacement D = sqrt((r - 1)^2 + 2r(1 - cos E)), r = ||f_t|| / ||e_t||
   embed_progress: mean_t (E_t^(l) - E_t^(l-1)) / phi_t, l >= 2, the share of the
                   layer's rotation that moves the token away from its embedding
                   (+: further away, -: back towards it); tokens with
                   phi_t < MIN_ROTATION are left out, nan if none are left
+Approach to the previous token, holding its state at layer l fixed as the anchor,
+with a = h_t^(l-1), b = h_t^(l), n = h_{t-1}^(l) (+: the update moves t towards
+t - 1, -: away from it, ~0: the separation is kept even if t moves a lot):
+  C:      mean_t angle(a, n) - angle(b, n), the angular effect of t's own update
+  Q:      mean_t C_t / phi_t, the share of the layer's rotation that approaches
+          the neighbour (embed_progress with t - 1 as the reference); tokens
+          with phi_t < MIN_ROTATION are left out, nan if none are left
+  C_dist: mean_t ||a - n|| - ||b - n||, the change in actual distance
 All features use the same tokens, t >= skip (the first --skip_tokens tokens,
 at most half the text, at least 1, are dropped), except the joint family
 (joint, joint_means, joint_lagk), which all use t >= max(skip, max lag) so
@@ -58,11 +62,11 @@ GAPS = (2, 4)
 LAGS = (5, 10, 20)
 FEATURES = (
     "E", "En", "Er", "S", "A", "An", "B", *(f"B{k}" for k in GAPS), "Bn", "EnB", "M",
-    "within", "across", "embed_disp", "embed_progress",
+    "within", "across", "embed_progress", "C", "Q", "C_dist",
     "joint", "joint_means", *(f"joint_lag{k}" for k in LAGS),
 )
 EPS = 1e-6
-# radians; embed_progress leaves out tokens the layer barely rotates
+# radians; embed_progress and Q leave out tokens the layer barely rotates
 MIN_ROTATION = 1e-3
 SUMMARY_COLUMNS = 8
 WIDTH = max(8, *(len(name) for name in FEATURES))
@@ -128,13 +132,22 @@ class LayerUpdates:
         theta = angle(hs[1:, s:], hs[1:, s - 1:-1])
         phi = angle(hs[1:, s:], hs[:-1, s:])
 
-        embed_disp = (dist[1:] / (e[s:].norm(dim=-1) + EPS)).mean(dim=-1)
         # at l = 1, E^(0) = 0 and E^(1) = phi, so the ratio is 1; start at l = 2
         rotated = phi[1:] >= MIN_ROTATION
         progress = (E_tok[1:] - E_tok[:-1]) / phi[1:].clamp_min(MIN_ROTATION)
         embed_progress = pad(
             (progress * rotated).sum(dim=-1) / rotated.sum(dim=-1), 1
         )
+
+        # approach: a = h_t^(l-1), b = h_t^(l), anchor n = h_{t-1}^(l); theta = angle(b, n)
+        anchor = hs[1:, s - 1:-1]
+        approach = angle(hs[:-1, s:], anchor) - theta
+        C = approach.mean(dim=-1)
+        moving = phi >= MIN_ROTATION
+        Q = (approach / phi.clamp_min(MIN_ROTATION) * moving).sum(dim=-1) / moving.sum(dim=-1)
+        C_dist = (
+            (hs[:-1, s:] - anchor).norm(dim=-1) - (hs[1:, s:] - anchor).norm(dim=-1)
+        ).mean(dim=-1)
 
         # the joint family on the same tokens, t >= max(s, max lag)
         start = max(s, *LAGS)
@@ -153,7 +166,7 @@ class LayerUpdates:
 
         values = (
             E, En, Er, S, A, An, B[1], *(B[k] for k in GAPS), Bn, En / B[1], M,
-            theta.mean(dim=-1), phi.mean(dim=-1), embed_disp, embed_progress,
+            theta.mean(dim=-1), phi.mean(dim=-1), embed_progress, C, Q, C_dist,
             joint[1], joint_means, *(joint[k] for k in LAGS),
         )
         return {name: value.cpu().numpy() for name, value in zip(FEATURES, values)}

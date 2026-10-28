@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_desc2
+#SBATCH --job-name=zmgt_desc_all
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
-#SBATCH --time=01:00:00
+#SBATCH --time=02:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=50GB
 #SBATCH --partition=gpu,nmes_gpu
@@ -18,11 +18,13 @@ nvidia-smi
 ROOT_DIR="${BASE_ZMGT:-$(pwd)}"
 cd "${ROOT_DIR}"
 
-MODELS=("q8b" "m8b") # "q8b" "q8bb" "l8b" "l8bb"
+MODELS=("q8b" "m8b" "l8b") # "q8b" "q8bb" "l8b" "l8bb"
 
 DATASETS=(
-            "drlXDomainLen_wiki_500_tokens" 
-             "drlXDomainLen_news_500_tokens" 
+            "drlXDomainLen_wiki_300_tokens" 
+             "drlXDomainLen_academic_300_tokens"
+             "drlXDomainLen_news_300_tokens"
+             "drlXDomainLen_novel_300_tokens" 
             #   "drlXDomainLen_novel_500_tokens" 
             #     "drlXDomainLen_seo_500_tokens" 
         #   "drlXDomainLen_wiki_2000_chars"
@@ -158,7 +160,7 @@ for MODEL in "${MODELS[@]}"; do
             echo "------------------------------------------------"
             echo "Running desc2: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
             echo "------------------------------------------------"
-            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.geometric_metrics.desc \
+            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.geometric_metrics.desc_all \
                 --model "$MODEL" \
                 --dataset "$DATASET" \
                 --seed "$SEED"

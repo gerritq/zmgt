@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_decom
+#SBATCH --job-name=zmgt_log_l_v
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --time=00:30:00
@@ -17,8 +17,8 @@ cd "${ROOT_DIR}"
 MODELS=("l8b")
 DATASETS=(
     #    "drlXAttacks_character_deletion"
-       "drlXAttacks_decoder_paraphrasing"
-     "raidDomain_wiki"
+    #    "drlXAttacks_decoder_paraphrasing"
+    #  "raidDomain_wiki"
     "drlXDomain_academic"
 #   "drlXAttacks_character_deletion"
 #  "drlXDomain_academic"

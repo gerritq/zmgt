@@ -6,12 +6,13 @@ dist/
 wheels/
 *.egg-info
 *.pt
-*.npz
 
 # Virtual environments
 .venv
 .venv_bino
 /logs/*
 
+# too large
+output/desc2/*
 /data/raw/
 output/desc/csd_distribution_drlXWikipedia_en_l8b_s42_w2.json

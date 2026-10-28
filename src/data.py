@@ -874,7 +874,7 @@ def editlens(cfg):
         with open(output_path, "w", encoding="utf-8") as file:
             json.dump(splits, file, ensure_ascii=False, indent=4)
 
-def detectRLX_domain_length_balanced(cfg, length=500, unit="tokens", n_per_class=100, model="l8b"):
+def detectRLX_domain_length_balanced(cfg, length=300, unit="tokens", n_per_class=150, model="l8b"):
     """
     English-only detectRLX domain subsets of n_per_class human and n_per_class machine texts, each with at least
     length units and truncated to exactly length units; unit is "tokens" (model's tokenizer, no special tokens) or
@@ -1011,8 +1011,8 @@ if __name__ == "__main__":
         editlens(cfg=cfg)
 
     elif args.name == "detectRLX_domain_length_balanced":
-        detectRLX_domain_length_balanced(cfg=cfg, length=500, unit="tokens")
-        detectRLX_domain_length_balanced(cfg=cfg, length=2000, unit="chars")
+        detectRLX_domain_length_balanced(cfg=cfg, length=300, unit="tokens", n_per_class=150)
+        detectRLX_domain_length_balanced(cfg=cfg, length=1200, unit="chars", n_per_class=150)
 
     elif args.name == "all":
         detectRLX(cfg=cfg)

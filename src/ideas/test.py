@@ -1,128 +1,140 @@
-"""Per-layer change decomposition scores for a text's hidden states.
+"""Layer-wise logit-lens trajectories of the observed token.
 
-For a token's change Δ relative to a base state b, split Δ into the part along b and the rest:
+For every token x_t and layer ℓ = 1..L (the transformer-layer outputs), apply the logit lens at position t − 1:
 
-  Δ_∥ = (Δ · b / ‖b‖²) b,   Δ_⊥ = Δ − Δ_∥
+  p_ℓ(· | x_<t) = softmax(W_U LN(h_{t−1}^ℓ))
 
-and keep the signed length Δ · b / ‖b‖ (> 0 = the state grows along b) and ‖Δ_⊥‖. Three kinds of change:
+(layer L uses the model's own logits, its hidden state is already normed) and track
 
-  across      Δ = h_t^ℓ − h_t^{ℓ−1},  b = h_t^{ℓ−1}               (the same token at the previous layer)
-  within      Δ = h_t^ℓ − h_{t−1}^ℓ,  b = h_{t−1}^ℓ               (the previous token at the same layer)
-  context{k}  Δ = h_t^ℓ − c_t^ℓ,     b = c_t^ℓ = mean_{j=1..k} h_{t−j}^ℓ   (the mean of the k previous tokens)
+  q_t^ℓ = log p_ℓ(x_t)                       observed-token log-probability
+  r_t^ℓ = rank of x_t under p_ℓ (0 = top-1)  observed-token rank
+  H_t^ℓ = −Σ_v p_ℓ(v) log p_ℓ(v)             predictive entropy
 
-context1 equals within. Each text's score at a layer is the mean over its tokens. The first ``SKIP_TOKENS`` tokens are
-dropped before anything is computed: the first token's norm is far larger and would dominate every mean. Hidden-state
-index 0 is the embedding output; indices 1..L are the transformer-layer outputs (across is NaN at 0).
+From these, per token:
+
+  norm      q̃_t^ℓ = (q_t^ℓ − q_t^1) / (q_t^L − q_t^1)   0 at layer 1, 1 at the final layer
+  rank_dev  d_t^ℓ = |r_t^ℓ − r_t^L|                    absolute rank deviation from the final layer
+
+Tokens with |q_t^L − q_t^1| < MIN_SPAN are left out of norm, since the ratio blows up there. Each text is averaged
+over its tokens, then texts are averaged per group. One PDF with a panel per measure (and entropy) goes to output/test.
 """
 
+import os
 from argparse import ArgumentParser, Namespace
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from tqdm import tqdm
 
+from src.config import Config
 from src.inference import Inference
-from src.utils import evaluation, load_data
+from src.utils import load_data
 
-SKIP_TOKENS = 1
-CONTEXT_K = (1, 4, 8, 16)
-CHANGES = ("across", "within", *(f"context{k}" for k in CONTEXT_K))
-PARTS = ("parallel", "perpendicular")
-SCORE_NAMES = tuple(f"{change}_{part}" for change in CHANGES for part in PARTS)
+cf = Config()
+
+OUTPUT_DIR = os.path.join(cf.base_dir, "output", "test")
+GROUPS = ((0, "human", "#2a78d6"), (1, "machine", "#eb6834"))
+MIN_SPAN = 0.5
+MEASURES = (
+    ("norm", "normalised log p  (q − q¹) / (qᴸ − q¹)", False),
+    ("rank_dev", "mean |rank − final rank|", True),
+    ("entropy", "mean predictive entropy (nats)", False),
+)
 
 
-class Decomposition:
-    """Mean parallel and perpendicular part of each kind of change, per layer."""
+class LayerLens:
+    """Per-layer observed-token log-probability, rank and entropy from the logit lens."""
 
-    METHOD = "change_decomposition"
+    METHOD = "layer_lens"
 
     def __init__(self, args: Namespace) -> None:
         self.args = args
         self.inference = Inference(model_name=args.model)
 
-    @staticmethod
-    def decompose(delta: torch.Tensor, base: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Signed length of delta along base and the length of the rest: (..., D), (..., D) -> (...,), (...,)."""
-        unit = base / base.norm(dim=-1, keepdim=True)
-        parallel = (delta * unit).sum(dim=-1)
-        return parallel, (delta - parallel[..., None] * unit).norm(dim=-1)
+    def final_norm(self) -> torch.nn.Module:
+        """The norm applied before the unembedding (text-only or multimodal wrapper)."""
+        inner = self.inference.model.model
+        return inner.norm if hasattr(inner, "norm") else inner.language_model.norm
 
     @staticmethod
-    def context(h: torch.Tensor, k: int) -> torch.Tensor:
-        """Mean of the k previous tokens for positions k..T−1: (L + 1, T, D) -> (L + 1, T − k, D)."""
-        sums = torch.cat([torch.zeros_like(h[:, :1]), h.cumsum(dim=1)], dim=1)  # sums[:, t] = Σ_{j<t} h_j
-        return (sums[:, k:-1] - sums[:, :-k - 1]) / k
+    def token_stats(logits: torch.Tensor, token_ids: torch.Tensor) -> tuple[torch.Tensor, ...]:
+        """q, rank and entropy of x_t from position t − 1 for t = 2..T: (T, V), (T,) -> 3 x (T − 1,)."""
+        log_probs = torch.log_softmax(logits[:-1].float(), dim=-1)
+        q = log_probs.gather(-1, token_ids[1:, None])
+        rank = (log_probs > q).sum(dim=-1)
+        entropy = -(log_probs.exp() * log_probs).sum(dim=-1)
+        return q.squeeze(-1), rank, entropy
 
-    def score(self, hidden_states: tuple[torch.Tensor, ...]) -> dict[str, np.ndarray]:
-        """Return one (L+1,) array per score; too-short texts produce NaNs."""
-        h = torch.stack(hidden_states)[:, SKIP_TOKENS:].to(self.inference.device).float()  # (L + 1, T, D)
-        n_layers = h.shape[0]
-        if h.shape[1] <= max(CONTEXT_K):
-            return {name: np.full(n_layers, np.nan) for name in SCORE_NAMES}
+    @torch.no_grad()
+    def layer_stats(self, hidden_states: tuple[torch.Tensor, ...], logits: torch.Tensor,
+                    token_ids: torch.Tensor) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """q, rank and entropy for ℓ = 1..L: (L + 1) x (T, D), (T, V), (T,) -> 3 x (L, T − 1)."""
+        lm_head = self.inference.model.get_output_embeddings()
+        norm = self.final_norm()
+        dtype = lm_head.weight.dtype
+        device_ids = token_ids.to(self.inference.device)
+        rows = []
+        for h in hidden_states[1:-1]:
+            layer_logits = lm_head(norm(h.to(self.inference.device, dtype)))
+            rows.append([stat.cpu() for stat in self.token_stats(layer_logits, device_ids)])
+        rows.append(list(self.token_stats(logits, token_ids)))
+        q, rank, entropy = (torch.stack(stat).numpy() for stat in zip(*rows))
+        return q, rank.astype(np.int64), entropy
 
-        nan = torch.full((1,), float("nan"), device=h.device)
-        parts = {
-            "across": [torch.cat([nan, part.mean(dim=1)]) for part in self.decompose(h[1:] - h[:-1], h[:-1])],
-            "within": [part.mean(dim=1) for part in self.decompose(h[:, 1:] - h[:, :-1], h[:, :-1])],
+    @staticmethod
+    def text_curves(q: np.ndarray, rank: np.ndarray, entropy: np.ndarray) -> dict[str, np.ndarray]:
+        """One text's (L,) curve per measure, averaged over its tokens; NaN if no token qualifies."""
+        n_layers = q.shape[0]
+        span = q[-1] - q[0]
+        keep = np.abs(span) >= MIN_SPAN
+        return {
+            "norm": ((q[:, keep] - q[0, keep]) / span[keep]).mean(axis=1) if keep.any()
+                    else np.full(n_layers, np.nan),
+            "rank_dev": np.abs(rank - rank[-1]).mean(axis=1) if q.shape[1] else np.full(n_layers, np.nan),
+            "entropy": entropy.mean(axis=1) if q.shape[1] else np.full(n_layers, np.nan),
         }
-        for k in CONTEXT_K:
-            base = self.context(h, k)
-            parts[f"context{k}"] = [part.mean(dim=1) for part in self.decompose(h[:, k:] - base, base)]
-        return {f"{change}_{part}": values.cpu().numpy()
-                for change, both in parts.items() for part, values in zip(PARTS, both)}
 
     @staticmethod
-    def evaluate(labels: np.ndarray, scores: np.ndarray) -> dict | None:
-        """Evaluate finite text scores; return None if both classes are unavailable."""
-        valid = np.isfinite(scores)
-        if valid.sum() < 2 or np.unique(labels[valid]).size < 2:
-            return None
-        metrics = evaluation(labels[valid], scores[valid])
-        metrics["n_scored"] = int(valid.sum())
-        return metrics
+    def plot_groups(ax: plt.Axes, labels: np.ndarray, per_text: np.ndarray) -> None:
+        """Group mean over layers with a ±1 standard-error band: per_text is (N, L)."""
+        layers = np.arange(1, per_text.shape[1] + 1)
+        for label, name, color in GROUPS:
+            rows = per_text[(labels == label) & np.isfinite(per_text).all(axis=1)]
+            mean = rows.mean(axis=0)
+            se = rows.std(axis=0) / np.sqrt(len(rows))
+            ax.plot(layers, mean, color=color, linewidth=2, label=f"{name} (n={len(rows)})")
+            ax.fill_between(layers, mean - se, mean + se, color=color, alpha=0.2, linewidth=0)
 
-    @staticmethod
-    def group_means(labels: np.ndarray, scores: np.ndarray) -> dict[str, float | None]:
-        out = {}
-        for label, group in ((0, "human"), (1, "machine")):
-            values = scores[(labels == label) & np.isfinite(scores)]
-            out[group] = float(values.mean()) if len(values) else None
-        return out
-
-    def run(self, args: Namespace) -> dict:
+    def run(self, args: Namespace) -> None:
+        args.return_logits = True
+        args.return_token_ids = True
         test_data = load_data(args=args)["test"]
         labels = np.asarray([item["label"] for item in test_data])
-        collected = {name: [] for name in SCORE_NAMES}
+        collected = {name: [] for name, _, _ in MEASURES}
 
         for item in tqdm(test_data, desc=f"Collecting {self.METHOD}"):
-            hidden_states = self.inference.run(item, args)["hidden_states"]
-            for name, values in self.score(hidden_states).items():
-                collected[name].append(values)
+            out = self.inference.run(item, args)
+            stats = self.layer_stats(out["hidden_states"], out["logits"], out["token_ids"])
+            for name, curve in self.text_curves(*stats).items():
+                collected[name].append(curve)
 
-        values = {name: np.asarray(rows, dtype=float) for name, rows in collected.items()}
-        n_layers = values[SCORE_NAMES[0]].shape[1]
-        metrics = {
-            name: [self.evaluate(labels, score[:, layer]) for layer in range(n_layers)]
-            for name, score in values.items()
-        }
-        means = {
-            name: [self.group_means(labels, score[:, layer]) for layer in range(n_layers)]
-            for name, score in values.items()
-        }
-
-        print(f"\n{self.METHOD} | model: {args.model} | dataset: {args.dataset} | "
-              f"seed: {args.seed} | first {SKIP_TOKENS} token(s) dropped | AUROC, machine positive")
-        for part in PARTS:
-            print(f"\n{part}")
-            print(f"{'layer':>7}" + "".join(f"{change:>12}" for change in CHANGES))
-            for layer in range(n_layers):
-                cells = []
-                for change in CHANGES:
-                    result = metrics[f"{change}_{part}"][layer]
-                    cells.append(f"{result['auroc']:.4f}" if result else "--")
-                print(f"{layer:>7}" + "".join(f"{cell:>12}" for cell in cells))
-
-        return {"metrics": metrics, "means": means, "scores": values, "labels": labels}
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        fig, axes = plt.subplots(1, len(MEASURES), figsize=(6 * len(MEASURES), 4))
+        for ax, (name, ylabel, log_y) in zip(axes, MEASURES):
+            self.plot_groups(ax, labels, np.stack(collected[name]))
+            ax.set(xlabel="layer", ylabel=ylabel, title=name)
+            if log_y:
+                ax.set_yscale("symlog", linthresh=1)  # final layer is 0 by definition
+            ax.grid(alpha=0.3)
+            ax.legend(frameon=False)
+        fig.suptitle(f"{args.model} | {args.dataset} | seed {args.seed}")
+        path = os.path.join(OUTPUT_DIR, f"layer_lens_{args.model}_{args.dataset}_s{args.seed}.pdf")
+        fig.savefig(path, bbox_inches="tight")
+        plt.close(fig)
+        print(f"Saved {path}")
 
 
 def parse_args() -> Namespace:
@@ -136,7 +148,7 @@ def parse_args() -> Namespace:
 def main() -> None:
     args = parse_args()
     args.model_name = args.model
-    Decomposition(args).run(args)
+    LayerLens(args).run(args)
 
 
 if __name__ == "__main__":

@@ -11,6 +11,9 @@ Per token, the change Δ to a state is split into the part along the previous st
     itself) and ‖Δ_⊥‖, for
     across layers:  Δ = h_t^ℓ − h_t^{ℓ−1}, h = h_t^{ℓ−1} (NaN at layer 0)
     within a layer: Δ = h_t^ℓ − h_{t−1}^ℓ, h = h_{t−1}^ℓ (NaN at position 0)
+Per token, also ‖D‖ with D = Δ_t − Δ_{t−1}, Δ_t = h_t^ℓ − h_t^{ℓ−1}: how different neighbouring tokens' across-layer updates
+    are (NaN at layer 0 and position 0). With w^ℓ = h_t^ℓ − h_{t−1}^ℓ, w^ℓ = w^{ℓ−1} + D, so
+    2 w^{ℓ−1} · D = ‖w^ℓ‖² − ‖w^{ℓ−1}‖² − ‖D‖², where ‖w‖² = within_parallel² + within_perpendicular².
 PCA per layer: at each layer ℓ, X^ℓ ∈ ℝ^{N×D} holds all N tokens of all texts except each text's first token (human and
 machine pooled); one centred PCA with two components (sklearn) is fitted on X^ℓ and these tokens are projected onto it.
 The first token is left out because its norm is far larger: it would take up PC1. The axes differ between layers, so
@@ -80,12 +83,15 @@ def token_scores(h: torch.Tensor) -> dict[str, np.ndarray]:
     nan_token = torch.full((h.shape[0], 1), float("nan"), device=h.device)
     across = decompose(h[1:] - h[:-1], h[:-1])
     within = decompose(h[:, 1:] - h[:, :-1], h[:, :-1])
+    update = h[1:] - h[:-1]
+    update_difference = (update[:, 1:] - update[:, :-1]).norm(dim=-1)
     scores = {
         "norms": h.norm(dim=-1),
         "across_parallel": torch.cat([nan_layer, across[0]]),
         "across_perpendicular": torch.cat([nan_layer, across[1]]),
         "within_parallel": torch.cat([nan_token, within[0]], dim=1),
         "within_perpendicular": torch.cat([nan_token, within[1]], dim=1),
+        "update_difference": torch.cat([nan_layer, torch.cat([nan_token[1:], update_difference], dim=1)]),
     }
     return {name: v.cpu().numpy() for name, v in scores.items()}
 
@@ -153,6 +159,9 @@ def run(args: Namespace) -> dict[str, np.ndarray]:
             "within_parallel, within_perpendicular": "(texts, L + 1, max T) float32, delta = h_t^l - h_{t-1}^l "
                                                      "split along h_{t-1}^l, as above; NaN at position 0 and after the "
                                                      "last token",
+            "update_difference": "(texts, L + 1, max T) float32, ||D|| with D = Delta_t - Delta_{t-1}, Delta_t = "
+                                 "h_t^l - h_t^{l-1}; 2 w^{l-1} . D = ||w^l||^2 - ||w^{l-1}||^2 - ||D||^2 with "
+                                 "w^l = h_t^l - h_{t-1}^l; NaN at layer 0, position 0 and after the last token",
             "pca": "(texts, L + 1, max T, 2) float32, per layer one centred PCA on all tokens of all texts except "
                    "position 0, each token projected onto its top two components; axes differ between layers; NaN at "
                    "position 0 and after the text's last token",

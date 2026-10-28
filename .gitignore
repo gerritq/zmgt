@@ -6,6 +6,7 @@ dist/
 wheels/
 *.egg-info
 *.pt
+*.npz
 
 # Virtual environments
 .venv

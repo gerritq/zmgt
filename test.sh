@@ -2,7 +2,7 @@
 #SBATCH --job-name=zmgt_probe
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
-#SBATCH --time=01:30:00
+#SBATCH --time=00:45:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=30GB
 #SBATCH --partition=gpu,nmes_gpu,interruptible_gpu

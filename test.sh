@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_log_l_v
+#SBATCH --job-name=zmgt_probe
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
-#SBATCH --time=00:30:00
+#SBATCH --time=01:30:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=30GB
 #SBATCH --partition=gpu,nmes_gpu,interruptible_gpu
@@ -16,13 +16,14 @@ cd "${ROOT_DIR}"
 
 MODELS=("l8b")
 DATASETS=(
-    #    "drlXAttacks_character_deletion"
-    #    "drlXAttacks_decoder_paraphrasing"
-    #  "raidDomain_wiki"
-    "drlXDomain_academic"
+    "drlXDomainLen_wiki_300_tokens" 
+        # "drlXAttacks_character_deletion"
+        # "drlXAttacks_decoder_paraphrasing"
+    #   "raidDomain_wiki"
+     "drlXDomain_academic"
 #   "drlXAttacks_character_deletion"
 #  "drlXDomain_academic"
-#  "samplingTemperature_1_0"
+#   "samplingTemperature_1_0"
 # "editlens_amazon_reviews" "editlens_fineweb_edu"
 #   "samplingTemperature_0_9"
 #      "samplingTemperature_1_0"
@@ -30,7 +31,7 @@ DATASETS=(
 SEEDS=(42)
 
 # ==================================================================================================
-# Shared token-energy fractions: mean centroid and uncentred top-1/top-5 PCA (prints only)
+# Spectral geometry per layer: top eigenvalue ratio, effective rank, mean cosine (± centering)
 # ==================================================================================================
 for MODEL in "${MODELS[@]}"; do
     for SEED in "${SEEDS[@]}"; do

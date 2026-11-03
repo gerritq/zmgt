@@ -1,12 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=data_drlXDomains_len_balan
+#SBATCH --job-name=data_drlX_paired
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --time=00:30:00
-#SBATCH --partition=cpu
 #SBATCH --cpus-per-task=6
-# SBATCH --partition=gpu,nmes_gpu,interruptible_gpu
-# sSBATCH --gres=gpu:1
+#SBATCH --partition=gpu,nmes_gpu,interruptible_gpu
+#SBATCH --gres=gpu:1
 #SBATCH --mem=50GB
 # SBATCH --constraint=h200|a100|b200
 #SBATCH --exclude=erc-hpc-comp054
@@ -24,6 +23,6 @@ for SEED in "${SEEDS[@]}"; do
     echo "------------------------------------------------"
 
     PYTHONPATH="${ROOT_DIR}" uv run -m src.data \
-        --name detectRLX_domain_length_balanced \
+        --name detectRLX_paired \
         --seed "${SEED}"
 done

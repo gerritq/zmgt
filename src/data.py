@@ -965,6 +965,107 @@ def detectRLX_domain_length_balanced(cfg, length=300, unit="tokens", n_per_class
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump({"test": samples}, f, ensure_ascii=False, indent=4)
 
+def detectRLX_paired(cfg, length=256, unit="tokens", n_per_class=150, model="l8b"):
+    """
+    English-only, paired detectRLX subsets, one per domain-generator pair: n_per_class source items, each giving its
+    human and its machine text. Only items where both texts have at least length units are kept, and both texts are
+    cut to exactly length units; unit is "tokens" (model's tokenizer, no special tokens) or "chars". If more items
+    qualify, n_per_class are drawn at random (cfg.seed). Both texts of an item share a "pair_id". Only a test split is
+    written, as in detectRLX_domain_length_balanced (e.g. drlXpaired_wiki_gpt_4o_256_tokens_s42.json).
+    """
+    if unit not in ("tokens", "chars"):
+        raise ValueError(f"unit must be 'tokens' or 'chars', not {unit!r}.")
+    from transformers import AutoTokenizer
+
+    source_path = os.path.join(
+        cfg.data_raw_dir, "drlX", "Binary", "binary_general_open.json"
+    )
+    with open(source_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    data = [
+        item for item in data
+        if item["lang"].lower() == "english"
+        and item["human_written_text"].strip()
+        and item["llm_generated_text"].strip()
+    ]
+    if not data:
+        raise ValueError("No valid English human-machine pairs found in detectRLX.")
+
+    tokenizer = AutoTokenizer.from_pretrained(cfg.model_dict[model])
+    rng = random.Random(cfg.seed)
+    # The folder name must equal the file prefix: load_data finds the folder from the part before the first "_".
+    prefix = "drlXpaired"
+    output_dir = os.path.join(cfg.data_set_dir, prefix)
+    os.makedirs(output_dir, exist_ok=True)
+
+    def output_name(value):
+        return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
+
+    def truncated(text):
+        """
+        The text cut to exactly length units, or None if it is shorter (or, for tokens, does not re-tokenize
+        exactly).
+        """
+        if unit == "chars":
+            return text[:length] if len(text) >= length else None
+        ids = tokenizer(text, add_special_tokens=False)["input_ids"]
+        if len(ids) < length:
+            return None
+        text = tokenizer.decode(ids[:length])
+        # Decoding can merge tokens at the cut, so keep only texts that re-tokenize to exactly length tokens.
+        if len(tokenizer(text, add_special_tokens=False)["input_ids"]) != length:
+            return None
+        return text
+
+    groups = defaultdict(list)
+    for item in data:
+        groups[(item["domain"], item["model"])].append(item)
+
+    for (domain, generator), items in sorted(groups.items()):
+        print(f"Processing detectRLX domain {domain!r}, generator {generator!r} at {length} {unit} ...")
+        # Shuffling and keeping the first n_per_class items that qualify is a random draw among all that qualify,
+        # and only tokenizes as many texts as needed.
+        items = list({(item["human_written_text"], item["llm_generated_text"]): item for item in items}.values())
+        rng.shuffle(items)
+        samples = []
+        n_pairs = 0
+        for item in items:
+            human = truncated(item["human_written_text"])
+            if human is None:
+                continue
+            machine = truncated(item["llm_generated_text"])
+            if machine is None:
+                continue
+            pair_id = f"{output_name(domain)}_{output_name(generator)}_{n_pairs:03d}"
+            metadata = {
+                "pair_id": pair_id,
+                "domain": item["domain"],
+                "lang": item["lang"],
+                "model": item["model"],
+            }
+            samples.append({**metadata, "text": human, "label": 0})
+            samples.append({**metadata, "text": machine, "label": 1})
+            n_pairs += 1
+            if n_pairs == n_per_class:
+                break
+
+        if n_pairs < n_per_class:
+            warnings.warn(
+                f"Not enough pairs with both texts >= {length} {unit} for domain={domain!r}, "
+                f"generator={generator!r}: need {n_per_class}, found {n_pairs} of {len(items)}; skipping."
+            )
+            continue
+
+        rng.shuffle(samples)
+        output_path = os.path.join(
+            output_dir,
+            f"{prefix}_{output_name(domain)}_{output_name(generator)}_{length}_{unit}_s{cfg.seed}.json",
+        )
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump({"test": samples}, f, ensure_ascii=False, indent=4)
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -1013,6 +1114,9 @@ if __name__ == "__main__":
     elif args.name == "detectRLX_domain_length_balanced":
         detectRLX_domain_length_balanced(cfg=cfg, length=300, unit="tokens", n_per_class=150)
         detectRLX_domain_length_balanced(cfg=cfg, length=1200, unit="chars", n_per_class=150)
+
+    elif args.name == "detectRLX_paired":
+        detectRLX_paired(cfg=cfg, length=256, unit="tokens", n_per_class=150)
 
     elif args.name == "all":
         detectRLX(cfg=cfg)

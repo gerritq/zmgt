@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_probe
+#SBATCH --job-name=zmgt_probe_wiki
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
-#SBATCH --time=01:00:00
+#SBATCH --time=02:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=30GB
 #SBATCH --partition=gpu,nmes_gpu,interruptible_gpu
@@ -16,12 +16,13 @@ cd "${ROOT_DIR}"
 
 MODELS=("l8b")
 DATASETS=(
-    # "drlXDomainLen_wiki_300_tokens" 
+             "drlXDomainLen_wiki_300_tokens" 
+                "drlXDomainLen_academic_300_tokens"
+            #   "drlXDomainLen_seo_300_tokens"
         # "drlXAttacks_character_deletion"
         # "drlXAttacks_decoder_paraphrasing"
-    #   "raidDomain_wiki"
-     "drlXDomain_academic"
-     "drlXDomain_wiki"
+    #  "drlXDomain_academic"
+    #  "drlXDomain_wiki"
 #   "drlXAttacks_character_deletion"
 #  "drlXDomain_academic"
 #   "samplingTemperature_1_0"
@@ -32,7 +33,7 @@ DATASETS=(
 SEEDS=(42)
 
 # ==================================================================================================
-# Spectral geometry per layer: top eigenvalue ratio, effective rank, mean cosine (± centering)
+# Steering along the probe direction, then probe vs random directions (every 2nd layer before target)
 # ==================================================================================================
 for MODEL in "${MODELS[@]}"; do
     for SEED in "${SEEDS[@]}"; do
@@ -40,19 +41,10 @@ for MODEL in "${MODELS[@]}"; do
             echo "------------------------------------------------"
             echo "Running test: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
             echo "------------------------------------------------"
-            # direction specificity: steering layers and fixed target per dataset (academic 4, 6 -> 9; wiki 7, 8 -> 10)
-            case "$DATASET" in
-                *academic*) LAYERS="4 6"; TARGET="9" ;;
-                *wiki*) LAYERS="7 8"; TARGET="10" ;;
-                *) LAYERS=""; TARGET="" ;;
-            esac
-            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.ideas.test \
-                --experiment specificity \
+            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.ideas.test3 \
                 --model "$MODEL" \
                 --dataset "$DATASET" \
-                --seed "$SEED" \
-                ${TARGET:+--target_layer $TARGET} \
-                ${LAYERS:+--intervene_layers $LAYERS}
+                --seed "$SEED"
         done
     done
 done

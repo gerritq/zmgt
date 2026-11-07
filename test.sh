@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_probe_wiki
+#SBATCH --job-name=zmgt_cross_layer
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
-#SBATCH --time=02:00:00
+#SBATCH --time=00:30:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=30GB
 #SBATCH --partition=gpu,nmes_gpu,interruptible_gpu
-#SBATCH --constraint=h200|h100|a100|a100_40g|a100_80g
-#SBATCH --exclude=erc-hpc-comp054,erc-hpc-comp040,erc-hpc-comp049
+#SBATCH --constraint=h200|h100|a100|a100_40g|a100_80g|b200
+#SBATCH --exclude=arc-hpc-comp054
 
 nvidia-smi
 
@@ -16,12 +16,15 @@ cd "${ROOT_DIR}"
 
 MODELS=("l8b")
 DATASETS=(
-             "drlXDomainLen_wiki_300_tokens" 
-                "drlXDomainLen_academic_300_tokens"
+    # "raidDomain_wiki"
+    #  "drlXAttacks_character_deletion"
+            #   "drlXDomainLen_wiki_300_tokens" 
+            #     "drlXDomainLen_academic_300_tokens"
             #   "drlXDomainLen_seo_300_tokens"
-        # "drlXAttacks_character_deletion"
-        # "drlXAttacks_decoder_paraphrasing"
-    #  "drlXDomain_academic"
+         "drlXAttacks_character_deletion"
+           "drlXAttacks_decoder_paraphrasing"
+        #   "drlXAttacks_character_deletion"
+    #   "drlXDomain_academic"
     #  "drlXDomain_wiki"
 #   "drlXAttacks_character_deletion"
 #  "drlXDomain_academic"
@@ -41,7 +44,7 @@ for MODEL in "${MODELS[@]}"; do
             echo "------------------------------------------------"
             echo "Running test: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
             echo "------------------------------------------------"
-            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.ideas.test3 \
+            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.ideas.test \
                 --model "$MODEL" \
                 --dataset "$DATASET" \
                 --seed "$SEED"

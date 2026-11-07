@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_prefix_steer
+#SBATCH --job-name=zmgt_steer_nov_seo_deepseek
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
-#SBATCH --time=02:00:00
+#SBATCH --time=05:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=30GB
-#SBATCH --partition=gpu,nmes_gpu,interruptible_gpu
-#SBATCH --constraint=h200|h100|a100|a100_40g|a100_80g|b200|b100
+#SBATCH --partition=gpu,nmes_gpu
+#SBATCH --constraint=h200|h100|a100|a100_40g|a100_80g|b200
 #SBATCH --exclude=erc-hpc-comp054,erc-hpc-comp040,erc-hpc-comp049
 
 nvidia-smi
@@ -16,16 +16,27 @@ cd "${ROOT_DIR}"
 
 MODELS=("l8b")
 DATASETS=(
-    "drlXpaired_wiki_gpt_4o_256_tokens"
-     "drlXpaired_wiki_gemini_2_5_flash_256_tokens"
-    "drlXpaired_news_gpt_4o_256_tokens"
-     "drlXpaired_news_gemini_2_5_flash_256_tokens"
-    "drlXpaired_academic_gpt_4o_256_tokens"
-     "drlXpaired_academic_gemini_2_5_flash_256_tokens"
+    #  "drlXpaired_wiki_gpt_4o_256_tokens"
+    #  "drlXpaired_wiki_gemini_2_5_flash_256_tokens"
+    #  "drlXpaired_wiki_deepseek_v3_256_tokens"
+    
+    # "drlXpaired_news_gpt_4o_256_tokens"
+    #  "drlXpaired_news_gemini_2_5_flash_256_tokens"
+    
+    #  "drlXpaired_academic_gpt_4o_256_tokens"
+    #   "drlXpaired_academic_gemini_2_5_flash_256_tokens"
+    #    "drlXpaired_academic_deepseek_v3_256_tokens"
+    
+    # "drlXpaired_novel_gpt_4o_256_tokens"
+    #   "drlXpaired_novel_gemini_2_5_flash_256_tokens"
+       "drlXpaired_novel_deepseek_v3_256_tokens"
 
+    # "drlXpaired_seo_gpt_4o_256_tokens"
+    # "drlXpaired_seo_gemini_2_5_flash_256_tokens"
+      "drlXpaired_seo_deepseek_v3_256_tokens"
 )
 SEEDS=(42)
-CONTROLS=("data_shuffle") # "random" 
+CONTROLS=("random") # "random" "data_shuffle"
 
 # ==================================================================================================
 # Prefix steering: push the prefix along the mean-difference direction, measure suffix angles

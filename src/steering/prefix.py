@@ -19,14 +19,17 @@
 4. Passes, per steered text, all in the same batch:
      baseline   no intervention
      steered    at layer l only, h_t <- h_t + s * c * u_l * r_l for the prefix positions t = 1..p; for every
-                strength c > 0 (STRENGTHS) and l = 1..P, with s = -1 for machine texts (pushed towards human) and
-                s = +1 for human texts (pushed towards machine): every text is pushed towards the other class only
+                strength c (STRENGTHS) and l = 1..P, with s = -1 for machine texts and s = +1 for human texts:
+                c > 0 pushes every text towards the other class (machine -> human, human -> machine), c < 0 further
+                towards its own class (machine -> more machine, human -> more human)
    The forward pass then runs on through layers l+1..L. The suffix is never touched directly: it changes only
    through attention to the steered prefix.
 5. Suffix geometry at every layer m = 1..L (layer 0 = embeddings), on suffix positions only:
      local_angle  mean angle (degrees) between adjacent suffix tokens (t, t+1), t >= p+1 (the boundary pair (p, p+1)
                   is left out)
      cross_angle  mean angle (degrees) between the same suffix token at layers m - 1 and m
+     pairwise_cos representation dispersion: mean cosine similarity over all pairs of distinct suffix tokens at
+                  layer m (higher = less dispersed)
 6. Effect = steered - baseline per text (paired), at each layer m > l; nan at m <= l, where the suffix cannot have
    changed (the largest |change| there is printed as a sanity check, expected ~0).
 7. Projected-out variant. The same angles, computed after removing the steering direction r_l (of the steered layer
@@ -34,8 +37,10 @@
    cross-layer angle at layer 1):  x_t <- x_t - (r_l . x_t) r_l.  The effect is again steered - baseline, both
    projected with the same r_l, so it shows whether the change in the suffix angles lies outside the direction
    itself (i.e. is not just the suffix moving along r_l).
+   Persistence: at every layer, the mean over the kept suffix positions of r . h (raw states), for the steered row and
+   the baseline row with the same r, so vh_steered - vh_baseline shows whether attention copied r into the suffix.
 Controls (--control picks one per run, "random" or "data_shuffle"; only that one is steered and saved):
-8. Random control (--control random). The same steering with N_RANDOM (30) random unit directions r = g / ||g||, g ~ N(0, I_d) (uniform on
+8. Random control (--control random). The same steering with N_RANDOM (20) random unit directions r = g / ||g||, g ~ N(0, I_d) (uniform on
    the sphere), drawn once with a fixed seed and reused at every layer and for every text: same layers, prefix
    positions, scale c * u_l, texts and batches, and the same projected-out variant (projecting out the random
    direction itself). The class sign s is applied as for the real direction.
@@ -74,15 +79,16 @@ TRAIN_FRACTION = 0.7
 # at least 3 suffix tokens, so that there are adjacent suffix pairs
 MIN_TOKENS = 8
 APPROACHES = ("token",)
-METRICS = ("local_angle", "cross_angle")
+METRICS = ("local_angle", "cross_angle", "pairwise_cos")
 # variants of every metric: as is, and with the steering direction projected out of the suffix states
 VARIANTS = ("standard", "projected")
-# c in units of the mean token norm u_l; always towards the other class (machine -> human, human -> machine)
-STRENGTHS = (0.05, 0.1, 0.2, 0.4)
+# c in units of the mean token norm u_l, applied with the class sign s (-1 machine, +1 human):
+# c > 0 towards the other class (machine -> human, human -> machine), c < 0 further towards the own class
+STRENGTHS = (-0.4, -0.2, -0.1, -0.05, 0.05, 0.1, 0.2, 0.4)
 # a token is left out at a layer if its norm there is > MAX_NORM_RATIO x the median token norm of its text
 MAX_NORM_RATIO = 2.0
 # random control: N_RANDOM unit directions r = g / ||g||, g ~ N(0, I_d), drawn once with seed + RANDOM_SEED_OFFSET
-N_RANDOM = 30
+N_RANDOM = 20
 RANDOM_SEED_OFFSET = 1000
 # label-shuffle control: N_SHUFFLE permutations of the train text labels (class sizes kept), seed + SHUFFLE_SEED_OFFSET
 N_SHUFFLE = 20
@@ -101,6 +107,15 @@ def masked_mean_angle(cos: torch.Tensor, w: torch.Tensor, dim: int = -1) -> torc
     ang = torch.rad2deg(torch.arccos(cos.clamp(-1, 1)))
     w = w.to(ang.dtype).expand_as(ang)
     return (ang * w).sum(dim=dim) / w.sum(dim=dim)
+
+
+def pairwise_cos(z: torch.Tensor, w: torch.Tensor) -> torch.Tensor:
+    """(R, S, d) unit vectors, (S,) bool kept -> (R,) mean cosine over all pairs of distinct kept tokens:
+    (||sum_t z_t||^2 - n) / (n (n - 1))."""
+    k = w.to(z.dtype)
+    n = k.sum()
+    total = (z * k[None, :, None]).sum(dim=1)
+    return ((total * total).sum(dim=-1) - n) / (n * (n - 1))
 
 
 def masked_layer_stats(states: torch.Tensor, keep: torch.Tensor, P: int) -> tuple[np.ndarray, ...]:
@@ -156,6 +171,19 @@ class PrefixHooks:
             masked_mean_angle(adjacent, ks[layer, 1:] & ks[layer, :-1]))
         self.metrics.setdefault(f"cross_angle{suffix}", []).append(
             masked_mean_angle(cross, ks[layer] & ks[layer - 1]))
+        self.metrics.setdefault(f"pairwise_cos{suffix}", []).append(pairwise_cos(z, ks[layer]))
+
+    def record_vh(self, h: torch.Tensor, layer: int) -> None:
+        """Persistence of the steering vector in the suffix: mean over the kept suffix positions of r . h (raw, not
+        normalized states) for every row with its own r ("vh"), and for the baseline row 0 with every row's r
+        ("vh_base")."""
+        x = h[:, self.p + 1:].float()                                                   # (R, S, d)
+        r = self.plan[2]                                                                # (R, d)
+        k = self.keep[layer, self.p:].float()                                           # (S,)
+        a = (x * r[:, None]).sum(dim=-1)                                                # (R, S)
+        a0 = x[0] @ r.T                                                                 # (S, R)
+        self.metrics.setdefault("vh", []).append((a * k).sum(dim=-1) / k.sum())
+        self.metrics.setdefault("vh_base", []).append((a0 * k[:, None]).sum(dim=0) / k.sum())
 
     def embedding_hook(self, module, inputs, output) -> None:
         if self.caching:
@@ -179,6 +207,8 @@ class PrefixHooks:
             states = self.suffix_states(h)
             for name, z in states.items():
                 self.record(name, z, layer)
+            if self.plan is not None:
+                self.record_vh(h, layer)
             self.prev = states
             return (h,) + tuple(output[1:]) if isinstance(output, tuple) else h
         return forward
@@ -325,7 +355,7 @@ class PrefixSteering:
         conditions = [(k, j, l) for k in range(K) for j in range(S) for l in range(1, P + 1)]
         # one baseline row in every batch, so that each effect is taken within its own batch
         B = max(1, self.args.batch_size - 1)
-        baseline, delta, delta_proj, baseline_proj = [], [], [], []
+        baseline, delta, delta_proj, baseline_proj, vh_steered, vh_baseline = [], [], [], [], [], []
         kept, p_all, T_all, noise, removed = [], [], [], 0.0, []
         scores = []  # (A, P) per text: the unsteered text mean along r_l, for the test AUROC
         for i, item in enumerate(tqdm(test, desc=f"Steering ({len(conditions)} conditions per text)")):
@@ -341,11 +371,14 @@ class PrefixSteering:
             scores.append(((sums / n[:, None])[None] * dirs["r"]).sum(axis=-1))         # (A, P)
             removed.append(1 - keep.float().mean(dim=1).cpu().numpy())                  # (L+1,)
             del states
-            # every text is pushed towards the other class: machine along -r (towards human), human along +r
+            # class sign: c > 0 pushes machine along -r (towards human) and human along +r (towards machine);
+            # c < 0 pushes each text further towards its own class
             sign = -1.0 if item["label"] == 1 else 1.0
             doc = np.full((len(METRICS), K, S, P, L), np.nan, dtype=np.float32)
             dproj = np.full((len(METRICS), K, S, P, L), np.nan, dtype=np.float32)
             bproj = np.full((len(METRICS), K, P, L), np.nan, dtype=np.float32)
+            vh_st = np.full((K, S, P, L), np.nan, dtype=np.float32)
+            vh_b = np.full((K, P, L), np.nan, dtype=np.float32)
             base = None
             for s in range(0, len(conditions), B):
                 conds = conditions[s:s + B]
@@ -367,10 +400,15 @@ class PrefixSteering:
                         dproj[mi, b, j, l - 1] = st - bs
                         bproj[mi, b, l - 1] = bs
                         noise = max(noise, float(np.abs(st[:l] - bs[:l]).max()))
+                for k, (b, j, l) in enumerate(conds, start=1):
+                    vh_st[b, j, l - 1] = res["vh"][k]
+                    vh_b[b, l - 1] = res["vh_base"][k]
             baseline.append(base)
             delta.append(doc)
             delta_proj.append(dproj)
             baseline_proj.append(bproj)
+            vh_steered.append(vh_st)
+            vh_baseline.append(vh_b)
             kept.append(i), p_all.append(p), T_all.append(T)
         # the suffix can only change at layers m > l
         after = np.arange(1, L + 1)[None, :] > np.arange(1, P + 1)[:, None]             # (P, L)
@@ -378,6 +416,7 @@ class PrefixSteering:
         delta = np.where(after, np.stack(delta), np.nan).astype(np.float32)             # (N, M, K, S, P, L)
         delta_proj = np.where(after, np.stack(delta_proj), np.nan).astype(np.float32)   # (N, M, K, S, P, L)
         baseline_proj = np.stack(baseline_proj)                                         # (N, M, K, P, L)
+        vh_steered, vh_baseline = np.stack(vh_steered), np.stack(vh_baseline)           # (N,K,S,P,L) (N,K,P,L)
         labels = np.asarray([test[i]["label"] for i in kept])
         scores = np.stack(scores)                                                       # (N, A, P)
         test_auroc = np.asarray([[roc_auc_score(labels, scores[:, a, l]) for l in range(P)]
@@ -391,12 +430,15 @@ class PrefixSteering:
                 "steered": delta[:, :, real] + baseline[:, :, None, None, None],
                 "delta_proj": delta_proj[:, :, real], "baseline_proj": baseline_proj[:, :, real],
                 "steered_proj": delta_proj[:, :, real] + baseline_proj[:, :, real, None],
+                "vh_steered": vh_steered[:, real], "vh_baseline": vh_baseline[:, real],
                 # random control directions
                 "delta_rand": delta[:, :, rand], "delta_rand_proj": delta_proj[:, :, rand],
                 "baseline_rand_proj": baseline_proj[:, :, rand],
+                "vh_rand_steered": vh_steered[:, rand], "vh_rand_baseline": vh_baseline[:, rand],
                 # label-shuffle control directions
                 "delta_shuf": delta[:, :, shuf], "delta_shuf_proj": delta_proj[:, :, shuf],
-                "baseline_shuf_proj": baseline_proj[:, :, shuf]}
+                "baseline_shuf_proj": baseline_proj[:, :, shuf],
+                "vh_shuf_steered": vh_steered[:, shuf], "vh_shuf_baseline": vh_baseline[:, shuf]}
 
     # ------------------------------------------------------------------ run
     def run(self) -> None:
@@ -405,14 +447,16 @@ class PrefixSteering:
         dirs = self.directions(train)
         res = self.steer(test, dirs)
 
+        created = time.strftime('%Y%m%d-%H%M%S')
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         path = os.path.join(OUTPUT_DIR, f"prefix_{args.control}_{args.model}_{args.dataset}_s{args.seed}_"
-                                        f"{time.strftime('%Y%m%d-%H%M%S')}.npz")
+                                        f"{created}.npz")
         if os.path.exists(path):
             raise FileExistsError(path)
         y = res["labels"]
         test_kept = [test[i] for i in res["kept"]]
         meta = {
+            "created": created,
             "model": args.model, "model_id": self.inference.model_id, "dtype": str(self.dtype),
             "dataset": args.dataset, "seed": args.seed, "train_fraction": TRAIN_FRACTION,
             "split_frac": args.split_frac, "min_tokens": MIN_TOKENS, "max_layer": self.P,
@@ -427,15 +471,22 @@ class PrefixSteering:
                              "text (unsteered pass, positions 1..T-1) are left out of the means, u, test scores and "
                              "angles at that layer; steering vectors are still added at all their positions",
             "removed_share_train": dirs["removed_share_train"],
-            "intervention": "h_t <- h_t + s * c * u_l * r_l at prefix positions t = 1..p, at layer l only; c > 0; "
-                            "s = -1 for machine texts (towards human), s = +1 for human texts (towards machine)",
+            "intervention": "h_t <- h_t + s * c * u_l * r_l at prefix positions t = 1..p, at layer l only; "
+                            "s = -1 for machine texts, s = +1 for human texts; c > 0 = towards the other class "
+                            "(machine -> human, human -> machine), c < 0 = further towards the own class",
             "split_point": "p = max(1, floor(split_frac * (T - 1))); prefix 1..p, suffix p+1..T-1",
             "local_angle": "mean angle (deg) between adjacent suffix tokens (t, t+1), t >= p+1",
             "cross_angle": "mean angle (deg) between suffix token t at layers m-1 and m (layer 0 = embeddings)",
+            "pairwise_cos": "representation dispersion: mean cosine similarity over all pairs of distinct kept suffix "
+                            "tokens at layer m",
             "effect": "delta = steered - baseline per text; nan at measurement layers m <= l",
             "projected": "*_proj: the same angles after projecting r_l (steered layer l, same approach) out of the "
                          "suffix states of both passes at every measurement layer and the embeddings: "
                          "x <- x - (r_l . x) r_l; delta_proj = steered_proj - baseline_proj (same batch)",
+            "persistence": "vh_* = mean over the kept suffix positions (p+1..T-1) of r . h at every layer 1..L "
+                           "(raw states; unit r of the steered layer: the real direction or the control direction; "
+                           "the injected vector is s * c * u_l * r), for the steered row and the baseline row 0 with "
+                           "the same r; vh_steered - vh_baseline at layers m > l = how much of r reached the suffix",
             "control": args.control,
             "random": {"n": N_RANDOM, "seed": self.args.seed + RANDOM_SEED_OFFSET,
                        "sampling": "r = g / ||g||, g ~ N(0, I_d) (numpy default_rng); the same directions at every "
@@ -456,7 +507,13 @@ class PrefixSteering:
                 "baseline_proj": "(N, metric, approach, steer layer 1..P, measurement layer 1..L)",
                 "steered_proj": "(N, metric, approach, strength, steer layer 1..P, measurement layer 1..L)",
                 "delta_proj": "(N, metric, approach, strength, steer layer 1..P, measurement layer 1..L)",
+                "vh_steered": "(N, approach, strength, steer layer 1..P, measurement layer 1..L)",
+                "vh_baseline": "(N, approach, steer layer 1..P, measurement layer 1..L)",
                 "rand": "(n_random, d)",
+                "vh_rand_steered": "(N, n_random, strength, steer layer 1..P, measurement layer 1..L)",
+                "vh_rand_baseline": "(N, n_random, steer layer 1..P, measurement layer 1..L)",
+                "vh_shuf_steered": "(N, n_shuffle, strength, steer layer 1..P, measurement layer 1..L)",
+                "vh_shuf_baseline": "(N, n_shuffle, steer layer 1..P, measurement layer 1..L)",
                 "delta_rand": "(N, metric, n_random, strength, steer layer 1..P, measurement layer 1..L)",
                 "delta_rand_proj": "(N, metric, n_random, strength, steer layer 1..P, measurement layer 1..L)",
                 "baseline_rand_proj": "(N, metric, n_random, steer layer 1..P, measurement layer 1..L)",
@@ -469,13 +526,15 @@ class PrefixSteering:
         # only the control that was run
         if args.control == "random":
             control = dict(rand=dirs["rand"].astype(np.float32), delta_rand=res["delta_rand"],
-                           delta_rand_proj=res["delta_rand_proj"], baseline_rand_proj=res["baseline_rand_proj"])
+                           delta_rand_proj=res["delta_rand_proj"], baseline_rand_proj=res["baseline_rand_proj"],
+                           vh_rand_steered=res["vh_rand_steered"], vh_rand_baseline=res["vh_rand_baseline"])
             meta.pop("shuffle")
             meta["shapes"] = {k: v for k, v in meta["shapes"].items() if "shuf" not in k}
         else:
             control = dict(shuf=dirs["shuf"].astype(np.float32), shuf_labels=dirs["shuf_labels"],
                            delta_shuf=res["delta_shuf"], delta_shuf_proj=res["delta_shuf_proj"],
-                           baseline_shuf_proj=res["baseline_shuf_proj"])
+                           baseline_shuf_proj=res["baseline_shuf_proj"],
+                           vh_shuf_steered=res["vh_shuf_steered"], vh_shuf_baseline=res["vh_shuf_baseline"])
             meta.pop("random")
             meta["shapes"] = {k: v for k, v in meta["shapes"].items() if "rand" not in k}
         extra = {}
@@ -493,6 +552,7 @@ class PrefixSteering:
             train_auroc=dirs["train_auroc"],
             test_auroc=res["test_auroc"], test_score=res["test_score"],
             baseline_proj=res["baseline_proj"], steered_proj=res["steered_proj"], delta_proj=res["delta_proj"],
+            vh_steered=res["vh_steered"], vh_baseline=res["vh_baseline"],
             **control,
             **extra,
         )

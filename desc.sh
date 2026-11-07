@@ -1,16 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_desc_entropy
+#SBATCH --job-name=zmgt_desc3
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
-#SBATCH --time=00:15:00
+#SBATCH --time=00:30:00
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=30GB
-#SBATCH --partition=gpu,nmes_gpu,interruptible_gpu
-#SBATCH --constraint=h200|h100|b200|a100|a100_40g|a100_80g|l40s
-#SBATCH --exclude=erc-hpc-comp054,erc-hpc-comp040,erc-hpc-comp222
-# SBATCH --partition=tier2_gpu
-# SBATCH --account=er_prj_inf_impact_llm_wikipedia
+#SBATCH --partition=gpu,nmes_gpu
+#SBATCH --constraint=h200|h100|a100|a100_40g|a100_80g|b200
+#SBATCH --exclude=arc-hpc-comp054
 
 # set -euo pipefail
 
@@ -20,14 +18,14 @@ ROOT_DIR="${BASE_ZMGT:-$(pwd)}"
 cd "${ROOT_DIR}"
 
 
-MODELS=("l8b") # "q8b" "l8b"
+MODELS=("l8b") # "q8b" "l8b" "q8b" "m8b"
 
 DATASETS=(
-#   "drlXAttacks_decoder_paraphrasing"
-#   "drlXAttacks_character_deletion"
-  "raidDomain_wiki"
-  "drlXDomain_academic"
-
+"drlXDomainLen_wiki_300_tokens"
+# "drlXDomainLen_academic_300_tokens"
+# "drlXDomainLen_novel_300_tokens"
+# "drlXDomainLen_seo_300_tokens"
+# "drlXDomainLen_webtext_300_tokens"
 )
 
 SEEDS=(42) # 42 43 44
@@ -72,15 +70,15 @@ SPLIT="test"
 # done
 
 # ==================================================================================================
-# LAYER SELECTION ENTROPY
+# GEOMETRY: HUMAN VS MACHINE (src/geometric_metrics/desc3.py)
 # ==================================================================================================
 for MODEL in "${MODELS[@]}"; do
     for SEED in "${SEEDS[@]}"; do
         for DATASET in "${DATASETS[@]}"; do
             echo "------------------------------------------------"
-            echo "Running layer_selection_entropy: Dataset=$DATASET, Model=$MODEL, Seed=$SEED, Split=$SPLIT"
+            echo "Running desc3: Dataset=$DATASET, Model=$MODEL, Seed=$SEED, Split=$SPLIT"
             echo "------------------------------------------------"
-            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.layer_desc.layer_selection_entropy \
+            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.geometric_metrics.desc3 \
                 --model "$MODEL" \
                 --dataset "$DATASET" \
                 --seed "$SEED" \

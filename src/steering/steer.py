@@ -1,4 +1,4 @@
-"""All-token steering: does pushing every token towards the other class change the geometry of later layers?
+"""All-token steering: does pushing every token along the human-machine direction change the geometry of later layers?
 
 Analogous to prefix.py (same data split, hook point, layer list, strength grid, norm-outlier filter and angle
 definitions), but the vector is added to every token position, not only to a prefix. Only computes and saves results;
@@ -12,9 +12,9 @@ no analysis.
    Norm outliers (as in prefix.py): at every layer, tokens whose norm is > MAX_NORM_RATIO (2) x the median token norm
    of their text at that layer (unsteered pass) are left out of the means, u_l, the test scores, the angles and v . h
    at that layer. The mask is computed once per text from an unsteered pass and used for every steered row.
-3. Controls (--control picks one per run; the real direction is always run), unit length, per layer:
-     random        N_RANDOM (20) vectors uniform on the sphere, g / ||g||, g ~ N(0, I_d); drawn independently for every
-                   layer, fixed seed (seed + RANDOM_SEED_OFFSET)
+3. Controls (--control picks one per run; the real direction is always run), unit length:
+     random        N_RANDOM (20) vectors uniform on the sphere, g / ||g||, g ~ N(0, I_d); drawn once (fixed seed,
+                   seed + RANDOM_SEED_OFFSET) and the same at every layer (prefix.py's random directions)
      data_shuffle  N_SHUFFLE (20) text-level permutations of the train labels (class sizes kept, seed +
                    SHUFFLE_SEED_OFFSET); difference in means (machine - human) over all kept tokens, per layer,
                    normalized (prefix.py's shuffle)
@@ -22,15 +22,18 @@ no analysis.
 4. Passes, per test text. One unsteered single-text pass caches the states at all layers (norm mask, test score).
    Then every batch holds one unsteered row (row 0) plus up to batch_size - 1 steered rows, so each effect is taken
    against an unsteered pass from the same batch (cancels bf16 batch noise). Steered row, for steered layer l,
-   strength c > 0 and vector v:
+   strength c (prefix.py's STRENGTHS, both signs) and vector v:
      h_t <- h_t + s * c * u_l * v   at layer l only, at every position t = 1..T-1
-   with s = -1 for machine texts (along -r, towards human) and s = +1 for human texts (along +r, towards machine):
-   every text is pushed towards the other class only. The same class sign is used for the control vectors.
+   with s = -1 for machine texts and s = +1 for human texts: c > 0 pushes every text towards the other class
+   (machine along -r towards human, human along +r towards machine), c < 0 further towards its own class. The same
+   class sign is used for the control vectors.
    Sanity check: in every steered row, the hidden states at layers < l (and at layer l before the vector is added)
    must equal the baseline row of the same batch; the run stops if the largest |difference| exceeds SANITY_ATOL.
 5. Angles at every layer m (layer 0 = embeddings), over the kept positions among 1..T-1:
      local_angle  mean angle (deg) between adjacent tokens (t, t+1), both kept at layer m
      cross_angle  mean angle (deg) between token t at layers m - 1 and m, kept at both
+     pairwise_cos representation dispersion: mean cosine similarity over all pairs of distinct kept tokens at
+                  layer m (higher = less dispersed)
    each twice: on the full states, and after projecting out the injected vector v of that row from the states of
    every layer (x <- x - (v . x) v). The baseline is computed on the full states and projected with every v used, so
    each steered result has a matching baseline. Effects are kept at layers m > l only (nan at m <= l).
@@ -52,12 +55,11 @@ from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 
 from src.inference import Inference
-from src.steering.prefix import (MAX_NORM_RATIO, METRICS, MIN_TOKENS, N_SHUFFLE, OUTPUT_DIR, RANDOM_SEED_OFFSET,
+from src.steering.prefix import (MAX_NORM_RATIO, METRICS, MIN_TOKENS, N_RANDOM, N_SHUFFLE, OUTPUT_DIR, RANDOM_SEED_OFFSET,
                                  SHUFFLE_SEED_OFFSET, STRENGTHS, TRAIN_FRACTION, PrefixSteering, keep_mask,
                                  masked_layer_stats, masked_mean_angle)
 
 APPROACHES = ("token",)
-N_RANDOM = 20
 # largest allowed |h_steered - h_baseline| at layers before the steered layer (same batch, expected exactly 0)
 SANITY_ATOL = 1e-3
 EPS = 1e-12
@@ -122,6 +124,21 @@ class AllTokenHooks:
         num = dot[0][:, None] - a0 * p["a0"]                                       # (T', R)
         den = ((n0 - a0 ** 2) * (p["n"][0][:, None] - p["a0"] ** 2)).clamp_min(EPS).sqrt()
         out["cross_angle_proj_base"] = masked_mean_angle(num / den, w[:, None], dim=0)
+        # dispersion: mean cosine over pairs of distinct kept tokens, (||sum_t z_t||^2 - n) / (n (n - 1)) with unit
+        # z_t; projected: z_t = (x_t - a_t v) / rho_t, rho_t = sqrt(n_t - a_t^2), and since v . sum_t x_t / rho_t =
+        # sum_t a_t / rho_t, ||sum_t z_t||^2 = ||sum_t x_t / rho_t||^2 - (sum_t a_t / rho_t)^2
+        k = kl.float()
+        nk = k.sum()
+        disp = lambda sq: (sq - nk) / (nk * (nk - 1))
+        g = k / n.clamp_min(EPS).sqrt()                                            # (R, T')
+        tot = (x * g[..., None]).sum(dim=1)                                        # (R, d)
+        out["pairwise_cos"] = disp((tot * tot).sum(dim=-1))
+        g = k / (n - a ** 2).clamp_min(EPS).sqrt()
+        tot, b = (x * g[..., None]).sum(dim=1), (a * g).sum(dim=-1)
+        out["pairwise_cos_proj"] = disp((tot * tot).sum(dim=-1) - b ** 2)
+        g = k[:, None] / (n0 - a0 ** 2).clamp_min(EPS).sqrt()                      # (T', R)
+        tot, b = x[0].T @ g, (a0 * g).sum(dim=0)                                   # (d, R), (R,)
+        out["pairwise_cos_proj_base"] = disp((tot * tot).sum(dim=0) - b ** 2)
         # persistence of the injected vector, over the tokens kept at this layer
         k = kl.float()
         out["vh"] = (a * k).sum(dim=-1) / k.sum()
@@ -160,8 +177,8 @@ class AllTokenHooks:
 
 
 class AllTokenSteering(PrefixSteering):
-    """Reuses PrefixSteering.split, .tokenize, .cache_states and .directions (AI direction, label shuffles, norm
-    filter); the random control, hooks and steering are all-token versions."""
+    """Reuses PrefixSteering.split, .tokenize, .cache_states and .directions (AI direction, random directions, label
+    shuffles, norm filter); hooks and steering are all-token versions."""
 
     def __init__(self, args: Namespace) -> None:
         self.args = args
@@ -175,18 +192,6 @@ class AllTokenSteering(PrefixSteering):
         self.P = min(args.max_layer, self.n_layers)
         self.strengths = np.asarray(STRENGTHS, dtype=np.float64)
         self.hooks = AllTokenHooks(self.decoder)
-
-    # ------------------------------------------------------------------ directions
-    @torch.no_grad()
-    def directions(self, train: list[dict]) -> dict:
-        """prefix.py's directions (r = mu_M - mu_H, u, AUROC, label shuffles; norm outliers left out); the random
-        control is redrawn here independently for every layer."""
-        dirs = super().directions(train)
-        if self.args.control == "random":
-            g = np.random.default_rng(self.args.seed + RANDOM_SEED_OFFSET).standard_normal(
-                (N_RANDOM, self.P, dirs["r"].shape[-1]))
-            dirs["rand"] = g / np.linalg.norm(g, axis=-1, keepdims=True)                     # (N_RANDOM, P, d)
-        return dirs
 
     # ------------------------------------------------------------------ steering
     @torch.no_grad()
@@ -205,7 +210,8 @@ class AllTokenSteering(PrefixSteering):
         (K = 1 real + controls, (K, P, d)); results are split into real and control at the end."""
         S, P, L = len(self.strengths), self.P, self.n_layers
         M = len(METRICS)
-        ctrl = dirs["rand"] if self.args.control == "random" else dirs["shuf"]
+        # random directions are the same at every layer: (N_RANDOM, d) -> (N_RANDOM, P, d)
+        ctrl = np.repeat(dirs["rand"][:, None], P, axis=1) if self.args.control == "random" else dirs["shuf"]
         bank = np.concatenate([dirs["r"], ctrl])                                            # (K, P, d), unit
         K = bank.shape[0]
         vec = torch.tensor(self.strengths[None, :, None, None] * dirs["u"][None, None, :, None] * bank[:, None],
@@ -227,7 +233,8 @@ class AllTokenSteering(PrefixSteering):
             scores.append(((sums / n[:, None])[None] * dirs["r"]).sum(axis=-1))             # (1, P)
             removed.append(1 - keep.float().mean(dim=1).cpu().numpy())                      # (L+1,)
             del states
-            # every text is pushed towards the other class: machine along -r (towards human), human along +r
+            # class sign: c > 0 pushes machine along -r (towards human) and human along +r (towards machine);
+            # c < 0 pushes each text further towards its own class
             sign = -1.0 if item["label"] == 1 else 1.0
             doc = np.full((M, K, S, P, L), np.nan, dtype=np.float32)
             dproj = np.full((M, K, S, P, L), np.nan, dtype=np.float32)
@@ -293,15 +300,17 @@ class AllTokenSteering(PrefixSteering):
         dirs = self.directions(train)
         res = self.steer(test, dirs)
 
+        created = time.strftime('%Y%m%d-%H%M%S')
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         path = os.path.join(OUTPUT_DIR, f"alltoken_{args.control}_{args.model}_{args.dataset}_s{args.seed}_"
-                                        f"{time.strftime('%Y%m%d-%H%M%S')}.npz")
+                                        f"{created}.npz")
         if os.path.exists(path):
             raise FileExistsError(path)
         y = res["labels"]
         test_kept = [test[i] for i in res["kept"]]
         tag = "rand" if args.control == "random" else "shuf"
         meta = {
+            "created": created,
             "model": args.model, "model_id": self.inference.model_id, "dtype": str(self.dtype),
             "dataset": args.dataset, "seed": args.seed, "train_fraction": TRAIN_FRACTION, "min_tokens": MIN_TOKENS,
             "max_layer": self.P, "n_layers": self.n_layers, "strengths": self.strengths.tolist(),
@@ -316,14 +325,17 @@ class AllTokenSteering(PrefixSteering):
                              "text (unsteered pass, positions 1..T-1) are left out of the means, u, test scores, "
                              "angles and v . h at that layer; steering vectors are still added at every position",
             "removed_share_train": dirs["removed_share_train"],
-            "intervention": "h_t <- h_t + s * c * u_l * v at every position t = 1..T-1, at layer l only; c > 0; "
-                            "s = -1 for machine texts (along -r, towards human), s = +1 for human texts (along +r, "
-                            "towards machine); the same sign for the control vectors",
+            "intervention": "h_t <- h_t + s * c * u_l * v at every position t = 1..T-1, at layer l only; "
+                            "s = -1 for machine texts, s = +1 for human texts; c > 0 = towards the other class "
+                            "(machine along -r towards human, human along +r towards machine), c < 0 = further "
+                            "towards the own class; the same sign for the control vectors",
             "baseline": "an unsteered single-text pass gives the norm mask and test score; the effect of a steered "
                         "row is taken against the unsteered row 0 of its own batch; 'baseline' holds the first "
                         "batch's row 0",
             "local_angle": "mean angle (deg) between adjacent tokens (t, t+1), t = 1..T-2, both kept",
             "cross_angle": "mean angle (deg) between token t at layers m-1 and m (layer 0 = embeddings), kept at both",
+            "pairwise_cos": "representation dispersion: mean cosine similarity over all pairs of distinct kept tokens "
+                            "at layer m",
             "effect": "delta = steered - baseline per text; nan at measurement layers m <= l",
             "projected": "*_proj: the same angles after projecting the injected unit vector v (of that row: r_l for "
                          "the real direction, the control vector for controls) out of the states at every layer "
@@ -333,7 +345,7 @@ class AllTokenSteering(PrefixSteering):
                            "is s * c * u_l * v), for the steered row and the baseline row",
             "control": args.control,
             "random": {"n": N_RANDOM, "seed": args.seed + RANDOM_SEED_OFFSET,
-                       "sampling": "v = g / ||g||, g ~ N(0, I_d) (numpy default_rng), drawn independently per layer; "
+                       "sampling": "v = g / ||g||, g ~ N(0, I_d) (numpy default_rng), drawn once, the same at every layer; "
                                    "scaled and injected like the real direction"},
             "shuffle": {"n": N_SHUFFLE, "seed": args.seed + SHUFFLE_SEED_OFFSET,
                         "sampling": "text labels of the train split permuted (class sizes kept), every token takes "
@@ -350,7 +362,7 @@ class AllTokenSteering(PrefixSteering):
                 "vh_baseline": "(N, approach, steer layer 1..P, measurement layer 1..L)",
                 "r|mu_h|mu_m": "(approach, P, d)", "u": "(P,)", "gap_norm|train_auroc|test_auroc": "(approach, P)",
                 "test_score": "(N, approach, P)",
-                f"{tag}": f"(n_{tag}, P, d)",
+                f"{tag}": "(n_rand, d)" if tag == "rand" else "(n_shuf, P, d)",
                 f"delta_{tag}|delta_{tag}_proj": f"(N, metric, n_{tag}, strength, steer layer 1..P, "
                                                  f"measurement layer 1..L)",
                 f"baseline_{tag}_proj": f"(N, metric, n_{tag}, steer layer 1..P, measurement layer 1..L)",
@@ -390,7 +402,7 @@ def parse_args() -> Namespace:
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--control", choices=("random", "data_shuffle"), required=True,
-                        help="random: N_RANDOM random unit vectors per layer; data_shuffle: N_SHUFFLE label-shuffled "
+                        help="random: N_RANDOM random unit vectors (same at every layer); data_shuffle: N_SHUFFLE label-shuffled "
                              "mean-difference directions")
     parser.add_argument("--max_layer", type=int, default=20, help="steer at layers 1..max_layer")
     parser.add_argument("--batch_size", type=int, default=81, help="rows per forward pass (incl. one baseline)")

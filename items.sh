@@ -15,13 +15,13 @@ cd "${ROOT_DIR}"
 # ----------------------------------------------------
 # f_metrics_desc
 # ----------------------------------------------------
-MODEL="l8b"
-DESC_DATASETS=("drlXDomainLen_wiki_500_tokens" "drlXDomainLen_wiki_2000_chars")
-for DATASET in "${DESC_DATASETS[@]}"; do
-    PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_metrics_desc \
-        --model "$MODEL" \
-        --dataset "$DATASET"
-done
+# MODEL="l8b"
+# DESC_DATASETS=("drlXDomainLen_wiki_500_tokens" "drlXDomainLen_wiki_2000_chars")
+# for DATASET in "${DESC_DATASETS[@]}"; do
+#     PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_metrics_desc \
+#         --model "$MODEL" \
+#         --dataset "$DATASET"
+# done
 
 
 
@@ -32,15 +32,15 @@ done
 # (l8b, m8b, q8b), mean over the four domains in output/metrics/aniso
 # VARIANT: all | skip10pct (first 10% of tokens dropped) | med5 / med10 (tokens with ||h_t|| > 5 / 10 x median dropped)
 # SMOOTH: 1 = centred 5-layer moving average
-VARIANT="med5"
-SMOOTH=1
-SEED=42
-SMOOTH_FLAG=""
-[ "$SMOOTH" = "1" ] && SMOOTH_FLAG="--smooth"
-PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_aniso \
-    --seed "$SEED" \
-    --variant "$VARIANT" \
-    $SMOOTH_FLAG
+# VARIANT="med5"
+# SMOOTH=1
+# SEED=42
+# SMOOTH_FLAG=""
+# [ "$SMOOTH" = "1" ] && SMOOTH_FLAG="--smooth"
+# PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_aniso \
+#     --seed "$SEED" \
+#     --variant "$VARIANT" \
+#     $SMOOTH_FLAG
 
 
 # ----------------------------------------------------
@@ -50,8 +50,8 @@ PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_aniso \
 # VERSION: raw | ratio (ratio = relative to layer_0)
 # LAYER: layer index (layer_i = transformer layer i + 1)
 MODEL="l8b"
-SCORE="joint"
-VERSION="ratio"
+SCORE="inter_mean_angle" # joint yielded the best
+VERSION="raw"
 LAYER=7
 PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.t_main \
     --model "$MODEL" \
@@ -66,15 +66,15 @@ PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.t_main \
 # SCORE: key in metrics_by_score (e.g. full_log, joint, withinacross_rel, intra_mean_norm)
 # VERSION: raw | ratio (ratio = relative to layer_0)
 # LAYER: layer index (layer_i = transformer layer i + 1)
-MODEL="l8b"
-SCORE="joint"
-VERSION="ratio"
-LAYER=7
-PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_robustness \
-    --model "$MODEL" \
-    --score "$SCORE" \
-    --version "$VERSION" \
-    --layer "$LAYER"
+# MODEL="l8b"
+# SCORE="joint"
+# VERSION="ratio"
+# LAYER=7
+# PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_robustness \
+#     --model "$MODEL" \
+#     --score "$SCORE" \
+#     --version "$VERSION" \
+#     --layer "$LAYER"
 
 
 # ----------------------------------------------------
@@ -83,16 +83,31 @@ PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_robustne
 # SCORE: key in metrics_by_score (e.g. full_log, joint, withinacross_rel, intra_mean_norm)
 # VERSION: raw | ratio (ratio = relative to layer_0)
 # LAYER: layer index (layer_i = transformer layer i + 1)
-MODEL="l8b"
-SCORE="joint"
-VERSION="ratio"
-LAYER=7
-PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_length \
-    --model "$MODEL" \
-    --score "$SCORE" \
-    --version "$VERSION" \
-    --layer "$LAYER"
+# MODEL="l8b"
+# SCORE="joint"
+# VERSION="ratio"
+# LAYER=7
+# PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_length \
+#     --model "$MODEL" \
+#     --score "$SCORE" \
+#     --version "$VERSION" \
+#     --layer "$LAYER"
 
+
+# ----------------------------------------------------
+# f_steering
+# ----------------------------------------------------
+# one PDF per steering result in output/steering (prefix_* and alltoken_*), latest run per kind, control, model,
+# dataset and seed: baseline geometry, mean Δ heatmaps (full / direction projected out), z against the control
+# PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_steering
+
+
+# ----------------------------------------------------
+# f_steering_summary
+# ----------------------------------------------------
+# all-token steering, steer at L7/L8/L9 and measure one layer later, c = 0.05, steering vector projected out, against
+# random directions; one row per domain-generator pair (latest alltoken_random_* run). Optional: --exclude news
+# PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_steering_summary
 
 # ----------------------------------------------------
 # f_metrics_stats_corr

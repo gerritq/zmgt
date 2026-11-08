@@ -2,7 +2,7 @@
 #SBATCH --job-name=zmgt_desc3
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
-#SBATCH --time=00:45:00
+#SBATCH --time=01:30:00
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=30GB
@@ -18,10 +18,10 @@ ROOT_DIR="${BASE_ZMGT:-$(pwd)}"
 cd "${ROOT_DIR}"
 
 
-MODELS=("l8b") # "q8b" "l8b" "q8b" "m8b"
+MODELS=("q8b" "m8b" "g7b") # "q8b" "l8b" "q8b" "m8b"
 
 DATASETS=(
-# "drlXDomainLen_wiki_300_tokens"
+ "drlXDomainLen_wiki_300_tokens"
 "drlXDomainLen_academic_300_tokens"
 "drlXDomainLen_novel_300_tokens"
 "drlXDomainLen_seo_300_tokens"

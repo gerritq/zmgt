@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_cross_layer
+#SBATCH --job-name=zmgt_lp
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --time=00:30:00
@@ -18,11 +18,12 @@ MODELS=("l8b")
 DATASETS=(
     # "raidDomain_wiki"
     #  "drlXAttacks_character_deletion"
-            #   "drlXDomainLen_wiki_300_tokens" 
+                "drlXpaired_wiki_gpt_4o_256_tokens" 
+            # "drlXpaired_novel_gpt_4o_256_tokens" 
             #     "drlXDomainLen_academic_300_tokens"
             #   "drlXDomainLen_seo_300_tokens"
-         "drlXAttacks_character_deletion"
-           "drlXAttacks_decoder_paraphrasing"
+        #  "drlXAttacks_character_deletion"
+        #    "drlXAttacks_decoder_paraphrasing"
         #   "drlXAttacks_character_deletion"
     #   "drlXDomain_academic"
     #  "drlXDomain_wiki"
@@ -44,7 +45,7 @@ for MODEL in "${MODELS[@]}"; do
             echo "------------------------------------------------"
             echo "Running test: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
             echo "------------------------------------------------"
-            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.ideas.test \
+            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.ideas.test2 \
                 --model "$MODEL" \
                 --dataset "$DATASET" \
                 --seed "$SEED"

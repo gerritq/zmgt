@@ -16,6 +16,8 @@ Analysis 1.2 (local: shuffle test), per text and layer, on the kept tokens in or
     A_original = mean ∠(h_t, h_{t+1}) over consecutive kept tokens; A_shuffled / A_shuffled_std = mean / std (ddof 0)
     of the same score over N_SHUFFLES random orders (rng seeded with [42, text_index, layer]); L = A_shuffled −
     A_original (> 0: neighbours are closer than random pairs)
+    per token: within_angle = ∠(h_{t-1}^ℓ, h_t^ℓ) on within-layer pairs (t-1 and t both kept; NaN otherwise and at t = 0).
+    Unlike A_original, a masked token is not skipped over, so the mean of within_angle can differ from A_original.
 Analysis 2 (across layers), per token, ℓ ≥ 1, across-layer pairs only, h = h_t^{ℓ-1}, Δ = h_t^ℓ − h
     across_angle = ∠(h, h + Δ), alpha = Δ·h / ‖h‖², beta = ‖Δ − alpha h‖ / ‖h‖, log_tan = log beta − log(1 + alpha),
     T1 = log ‖Δ‖, T2 = log(‖Δ − alpha h‖ / ‖Δ‖), T3 = −log ‖h‖, T4 = −log(1 + alpha)  (log_tan = T1 + T2 + T3 + T4)
@@ -122,6 +124,13 @@ def shuffle_test(x: torch.Tensor, keep: torch.Tensor, text_index: int) -> dict[s
     return out
 
 
+def within_angle(x: torch.Tensor, keep: torch.Tensor) -> torch.Tensor:
+    """x: (L, T, D), keep: (L, T) -> (L, T) ∠(h_{t-1}, h_t) in degrees on within-layer pairs; NaN elsewhere and at t = 0."""
+    pair = keep[:, 1:] & keep[:, :-1]
+    values = torch.where(pair, angle(x[:, :-1], x[:, 1:]), NAN)
+    return torch.cat([torch.full_like(values[:, :1], NAN), values], dim=1)
+
+
 def across_split(x: torch.Tensor, keep: torch.Tensor) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
     """Analysis 2. x: (L, T, D) float64 -> {score: (L, T)} NaN at layer 0, off across pairs and where flagged; flag."""
     prev, cur = x[:-1], x[1:]
@@ -178,6 +187,7 @@ def text_statistics(h: torch.Tensor, logits: torch.Tensor, token_ids: torch.Tens
     return {
         "layers": {**to_np(layers), "n_kept": keep.sum(dim=1).cpu().numpy()},
         "across": to_np(across),
+        "within": {"within_angle": within_angle(x, keep).cpu().numpy()},
         "masks": {"keep": keep.cpu().numpy(), "flag_large_angle": flag.cpu().numpy()},
         "pred": {**to_np(pred), "token_ids": token_ids.cpu().numpy()},
         "text": text,
@@ -225,6 +235,7 @@ def run(args: Namespace) -> dict[str, np.ndarray]:
     arrays.update({name: np.stack([row["layers"][name] for row in rows]).astype(np.float32) for name in LAYER_SCORES})
     arrays.update({name: pad([row["across"][name] for row in rows], max_t, np.nan, np.float32)
                    for name in ACROSS_SCORES})
+    arrays["within_angle"] = pad([row["within"]["within_angle"] for row in rows], max_t, np.nan, np.float32)
     arrays.update({name: pad([row["masks"][name] for row in rows], max_t, False, bool) for name in TOKEN_MASKS})
     arrays.update({name: pad([row["pred"][name] for row in rows], max_t, np.nan, np.float32) for name in PRED_SCORES})
 
@@ -248,6 +259,8 @@ def run(args: Namespace) -> dict[str, np.ndarray]:
                 "shuffle scores need >= 2 kept tokens)",
             ", ".join(ACROSS_SCORES): "(texts, layers, max T) float32; NaN at layer 0, off across-layer pairs, where "
                 "flag_large_angle and after the last token",
+            "within_angle": "(texts, layers, max T) float32, angle(h_{t-1}, h_t) in degrees at the same layer; NaN at "
+                "t = 0, unless t-1 and t are both kept, and after the last token",
             "keep": "(texts, layers, max T) bool, ||h_t|| <= 2 * median_t ||h_t|| and t >= 10",
             "flag_large_angle": "(texts, layers, max T) bool, across-layer pair with 1 + alpha <= 0",
             "token_ids": "(texts, max T) int64, -1 after the last token",

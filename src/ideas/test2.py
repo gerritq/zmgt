@@ -1,260 +1,202 @@
-"""Layer-update features measured against the embedding and the previous token.
+"""Text and token states against an L2 logistic-regression "AI direction", per layer (plotted only).
 
-With e_t = hidden_states[0] (embeddings), h_t^(l) = hidden_states[l] and the
-layer update delta_t^(l) = h_t^(l) - h_t^(l-1), for each text and layer l >= 1:
-  E: mean_t angle(h_t^(l), e_t)
-       how far the token's direction has moved from its embedding
-  A: mean_t angle(delta_t^(l), delta_{t-1}^(l))
-       whether the layer moves neighbouring tokens in similar directions
-  B: mean_t angle(h_t^(l) - e_t, h_t^(l-1) - e_t), l >= 2
-       whether the displacement from the embedding keeps its direction
-  M: mean_t ||delta_t^(l) - delta_{t-1}^(l)|| / (||h_t^(l-1) - h_{t-1}^(l-1)|| + eps)
-       how much the layer changes a token's position relative to its neighbour
-Each angle feature X also has a magnitude twin Xn: mean_t ||a - b|| for the same
-two vectors a, b (En: ||h_t^(l) - e_t||, An: ||delta_t - delta_{t-1}||,
-Bn: ||h_t^(l) - h_t^(l-1)|| = ||delta_t^(l)||).
-Variants:
-  Er:  mean_t ||h_t^(l) - e_t|| / ||h_t^(l)||, En without the growth of norms
-  S:   mean_t ||h_t^(l) - e_t|| / sum_{j=1..l} ||delta_t^(j)||, l >= 2
-       straightness of the path from the embedding (1 = straight line)
-  Bk:  B with a gap of k layers, angle(h_t^(l) - e_t, h_t^(l-k) - e_t), l >= k + 1
-  EnB: En / B, per text
-Within / across angles, with theta_t = angle(h_t^(l), h_{t-1}^(l)) and
-phi_t = angle(h_t^(l), h_t^(l-1)) (layer 1 against the embeddings):
-  within:        mean_t theta_t, the step to the previous token in the same layer
-  across:        mean_t phi_t, the step from the previous layer for the same token
-  joint:         mean_t sqrt(theta_t * phi_t), the per-token geometric mean
-  joint_means:   sqrt(mean_t theta_t * mean_t phi_t), the geometric mean of the means
-  joint_lagk:    joint with the within angle lagged by k tokens,
-                 angle(h_t^(l), h_{t-k}^(l))
-Displacement from the embedding, with E_t^(l) = angle(h_t^(l), e_t):
-  embed_progress: mean_t (E_t^(l) - E_t^(l-1)) / phi_t, l >= 2, the share of the
-                  layer's rotation that moves the token away from its embedding
-                  (+: further away, -: back towards it); tokens with
-                  phi_t < MIN_ROTATION are left out, nan if none are left
-Approach to the previous token, holding its state at layer l fixed as the anchor,
-with a = h_t^(l-1), b = h_t^(l), n = h_{t-1}^(l) (+: the update moves t towards
-t - 1, -: away from it, ~0: the separation is kept even if t moves a lot):
-  C:      mean_t angle(a, n) - angle(b, n), the angular effect of t's own update
-  Q:      mean_t C_t / phi_t, the share of the layer's rotation that approaches
-          the neighbour (embed_progress with t - 1 as the reference); tokens
-          with phi_t < MIN_ROTATION are left out, nan if none are left
-  C_dist: mean_t ||a - n|| - ||b - n||, the change in actual distance
-All features use the same tokens, t >= skip (the first --skip_tokens tokens,
-at most half the text, at least 1, are dropped), except the joint family
-(joint, joint_means, joint_lagk), which all use t >= max(skip, max lag) so
-they are averaged over the same tokens; texts too short for that are nan.
-No hypothesis on direction, so each
-(feature, layer) AUROC is flipped to >= 0.5 and its sign printed (+1: machine
-higher, -1: human higher). Results are printed only.
+Layers ℓ = 0..L (0 = embeddings, ℓ = output of decoder layer ℓ, taken with forward hooks, so layer L comes before the
+final norm). Position 0 (the attention sink) is left out everywhere. One forward pass per text; all token states are kept
+on the CPU in bfloat16 ((L + 1) · N · d · 2 bytes for N tokens, e.g. ~21 GB for 33 layers, 80k tokens, d = 4096).
+
+Direction, per layer: an L2-penalised logistic regression (sklearn, C = --C, balanced class weights, intercept) on all
+tokens of all texts of the test split, token label = its text's label (1 = machine). The states are divided by the
+layer's mean token norm before fitting (one scalar per layer, so the direction is unchanged and C means the same at
+every layer). w^ℓ = coef / ‖coef‖ (unit; points to machine).
+Scores, with m = mean_t h_t (a text's mean state):
+    row 1  cos(m, w)                                         per text
+    row 2  ⟨m, w⟩                                            per text, the mean state projected onto w
+    row 3  ⟨m, w⟩ / mean_t ‖h_t‖                             per text, that projection as a share of the mean token norm
+    row 4  mean over all tokens of a group of ⟨h_t, w⟩ / ‖h_t‖ = cos(h_t, w)   per group, pooled over tokens
+Left: human and machine means; right: the gap machine − human. Bands are ±1 SD of the measure: over the texts of a group
+(rows 1-3) or over all tokens of a group (row 4); for the gap ±sqrt(SD_human² + SD_machine²), the SD of the difference
+between a random machine and a random human text (token).
+    row 5  left: per text, the SD of cos(h_t, w) over its tokens (within-text SD); mean over the texts of a group,
+           band ±1 SD over texts. right: ICC = between / (between + within) per group, between = variance of the text
+           means of cos(h_t, w), within = mean within-text variance (near 1: a text's tokens share one level; near 0:
+           the share varies mostly from token to token).
+The direction is fit on the same texts it scores (in-sample).
+Saved as lr_text_token_{model}_{dataset}_s{seed}.pdf in the main directory.
 """
 
+import os
 from argparse import ArgumentParser, Namespace
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
+from src.config import Config
 from src.inference import Inference
-from src.utils import evaluation, load_data
+from src.items.plot_style import configure_plot_style
+from src.utils import load_data
 
-GAPS = (2, 4)
-LAGS = (5, 10, 20)
-FEATURES = (
-    "E", "En", "Er", "S", "A", "An", "B", *(f"B{k}" for k in GAPS), "Bn", "EnB", "M",
-    "within", "across", "embed_progress", "C", "Q", "C_dist",
-    "joint", "joint_means", *(f"joint_lag{k}" for k in LAGS),
-)
-EPS = 1e-6
-# radians; embed_progress and Q leave out tokens the layer barely rotates
-MIN_ROTATION = 1e-3
-SUMMARY_COLUMNS = 8
-WIDTH = max(8, *(len(name) for name in FEATURES))
+cfg = Config()
+
+MIN_TOKENS = 2  # position 0 is dropped, so a text needs one more token
+EPS = 1e-12
+HUMAN, MACHINE, INK = "#0072B2", "#D55E00", "#24292F"
 
 
-def angle(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    cos = torch.nn.functional.cosine_similarity(a, b, dim=-1, eps=1e-8)
-    return torch.acos(cos.clamp(-1.0, 1.0))
-
-
-class LayerUpdates:
+class TextTokenDirection:
     def __init__(self, args: Namespace) -> None:
         self.args = args
         self.inference = Inference(model_name=args.model, args=args)
-        self.model = self.inference.model
-        self.tokenizer = self.inference.tokenizer
+        self.model, self.tokenizer = self.inference.model, self.inference.tokenizer
         self.device = self.inference.device
-        self.n_layers = self.model.config.num_hidden_layers
-        layers = list(range(1, self.n_layers + 1)) if args.layers is None else args.layers
-        if any(layer < 1 or layer > self.n_layers for layer in layers):
-            raise ValueError(f"--layers must be hidden-state indices in 1..{self.n_layers}.")
-        self.layers = sorted(set(layers))
+        self.decoder = self.model.get_decoder()
+        self.n_layers = self.model.config.num_hidden_layers + 1  # embeddings + decoder layers
+        self.states: list[torch.Tensor] = []
+        self.decoder.embed_tokens.register_forward_hook(self.record)
+        for layer in self.decoder.layers:
+            layer.register_forward_hook(self.record)
 
-    def scores(self, hs: torch.Tensor) -> dict[str, np.ndarray]:
-        """All features from (L + 1, T, d) hidden states; each is (L,) for layers 1..L,
-        nan where a feature is undefined."""
-        hs = hs.float()
-        T = hs.shape[1]
-        s = max(1, min(self.args.skip_tokens, T // 2))
-        e = hs[0]
-        # delta[l - 1] = delta^(l) = h^(l) - h^(l-1)
-        delta = hs[1:] - hs[:-1]
-
-        def pad(x: torch.Tensor, k: int) -> torch.Tensor:
-            """Prepend k nans for the first k layers, where x is undefined."""
-            return torch.cat([hs.new_full((k,), float("nan")), x])
-
-        # tokens t >= s; [s - 1:-1] gives their previous token
-        # disp[l] = h^(l) - e; disp[0] = 0, so B starts at l = 2
-        disp = hs[:, s:] - e[s:]
-        dist = disp.norm(dim=-1)
-        step = delta[:, s:].norm(dim=-1)
-        # E_tok[l - 1] = E_t^(l)
-        E_tok = angle(hs[1:, s:], e[s:].expand_as(hs[1:, s:]))
-        E = E_tok.mean(dim=-1)
-        En = dist[1:].mean(dim=-1)
-        Er = (dist[1:] / (hs[1:, s:].norm(dim=-1) + EPS)).mean(dim=-1)
-        # at l = 1 the path is a single step, so S = 1
-        S = pad((dist[2:] / (step.cumsum(dim=0)[1:] + EPS)).mean(dim=-1), 1)
-
-        moved = (delta[:, s:] - delta[:, s - 1:-1]).norm(dim=-1)
-        A = angle(delta[:, s:], delta[:, s - 1:-1]).mean(dim=-1)
-        An = moved.mean(dim=-1)
-
-        # Bk[l] compares disp[l] with disp[l - k], for l = k + 1..L
-        B = {k: pad(angle(disp[k + 1:], disp[1:-k]).mean(dim=-1), k) for k in (1, *GAPS)}
-        Bn = pad(step[1:].mean(dim=-1), 1)
-
-        separation = (hs[:-1, s:] - hs[:-1, s - 1:-1]).norm(dim=-1)
-        M = (moved / (separation + EPS)).mean(dim=-1)
-
-        # within: previous token in the same layer; across: same token one layer down
-        theta = angle(hs[1:, s:], hs[1:, s - 1:-1])
-        phi = angle(hs[1:, s:], hs[:-1, s:])
-
-        # at l = 1, E^(0) = 0 and E^(1) = phi, so the ratio is 1; start at l = 2
-        rotated = phi[1:] >= MIN_ROTATION
-        progress = (E_tok[1:] - E_tok[:-1]) / phi[1:].clamp_min(MIN_ROTATION)
-        embed_progress = pad(
-            (progress * rotated).sum(dim=-1) / rotated.sum(dim=-1), 1
-        )
-
-        # approach: a = h_t^(l-1), b = h_t^(l), anchor n = h_{t-1}^(l); theta = angle(b, n)
-        anchor = hs[1:, s - 1:-1]
-        approach = angle(hs[:-1, s:], anchor) - theta
-        C = approach.mean(dim=-1)
-        moving = phi >= MIN_ROTATION
-        Q = (approach / phi.clamp_min(MIN_ROTATION) * moving).sum(dim=-1) / moving.sum(dim=-1)
-        C_dist = (
-            (hs[:-1, s:] - anchor).norm(dim=-1) - (hs[1:, s:] - anchor).norm(dim=-1)
-        ).mean(dim=-1)
-
-        # the joint family on the same tokens, t >= max(s, max lag)
-        start = max(s, *LAGS)
-        if start < T:
-            phi_j = phi[:, start - s:]
-            theta_j = theta[:, start - s:]
-            joint = {1: (theta_j * phi_j).sqrt().mean(dim=-1)}
-            joint_means = (theta_j.mean(dim=-1) * phi_j.mean(dim=-1)).sqrt()
-            for k in LAGS:
-                theta_k = angle(hs[1:, start:], hs[1:, start - k:-k])
-                joint[k] = (theta_k * phi_j).sqrt().mean(dim=-1)
-        else:
-            nan = hs.new_full((hs.shape[0] - 1,), float("nan"))
-            joint = {k: nan for k in (1, *LAGS)}
-            joint_means = nan
-
-        values = (
-            E, En, Er, S, A, An, B[1], *(B[k] for k in GAPS), Bn, En / B[1], M,
-            theta.mean(dim=-1), phi.mean(dim=-1), embed_progress, C, Q, C_dist,
-            joint[1], joint_means, *(joint[k] for k in LAGS),
-        )
-        return {name: value.cpu().numpy() for name, value in zip(FEATURES, values)}
+    def record(self, module, inputs, output) -> None:
+        self.states.append(output[0] if isinstance(output, tuple) else output)
 
     @torch.no_grad()
-    def text_scores(self, text: str) -> dict[str, np.ndarray] | None:
-        ids = self.tokenizer(
-            text,
-            add_special_tokens=False,
-            truncation=True,
-            max_length=self.args.max_tokens,
-            return_tensors="pt",
-        )["input_ids"].to(self.device)
-        if ids.shape[1] < 3:
-            return None
-        outputs = self.model(
-            input_ids=ids,
-            attention_mask=torch.ones_like(ids),
-            output_hidden_states=True,
-            use_cache=False,
-        )
-        return self.scores(torch.stack(outputs.hidden_states)[:, 0])
+    def hidden(self, ids: torch.Tensor) -> torch.Tensor:
+        """(T,) token ids -> (L + 1, T − 1, d) float32 states, position 0 dropped."""
+        self.states = []
+        self.decoder(input_ids=ids[None].to(self.device), use_cache=False)
+        h = torch.stack(self.states)[:, 0, 1:].float()
+        self.states = []
+        return h
 
-    def run(self) -> dict:
+    def collect(self, data: list[dict]) -> dict:
+        """One forward pass per text: token states (L + 1, N, d) bf16, per-text means and mean token norms."""
+        ids = [self.tokenizer(item["text"], add_special_tokens=False, return_tensors="pt")["input_ids"][0]
+               for item in data]
+        keep = [i for i in range(len(data)) if len(ids[i]) >= MIN_TOKENS]
+        sizes = np.asarray([len(ids[i]) - 1 for i in keep])
+        starts = np.concatenate([[0], np.cumsum(sizes)[:-1]])
+        d = self.model.config.hidden_size
+        states = torch.empty((self.n_layers, int(sizes.sum()), d), dtype=torch.bfloat16)
+        means = np.empty((len(keep), self.n_layers, d))
+        norms = np.empty((len(keep), self.n_layers))
+        for j, i in enumerate(tqdm(keep, desc="Texts")):
+            h = self.hidden(ids[i])
+            states[:, starts[j]:starts[j] + sizes[j]] = h.bfloat16().cpu()
+            means[j] = h.double().mean(dim=1).cpu().numpy()
+            norms[j] = h.double().norm(dim=-1).mean(dim=1).cpu().numpy()
+        labels = np.asarray([int(data[i]["label"]) for i in keep])
+        return {"states": states, "means": means, "norms": norms, "labels": labels,
+                "text_of_token": np.repeat(np.arange(len(keep)), sizes)}
+
+    def directions(self, states: torch.Tensor, token_labels: np.ndarray, text_of_token: np.ndarray, n_texts: int
+                   ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Per layer: unit LR direction (L + 1, d); per text the sums of cos(h_t, w) and cos² over its tokens, and the
+        token count."""
+        w = np.empty((self.n_layers, states.shape[2]))
+        cos_sum = np.zeros((n_texts, self.n_layers))
+        cos_sq_sum = np.zeros((n_texts, self.n_layers))
+        for layer in tqdm(range(self.n_layers), desc="Logistic regression"):
+            x = states[layer].float().numpy()  # (N, d)
+            token_norm = np.linalg.norm(x, axis=1)
+            # L2 penalty is sklearn's default (the penalty argument is deprecated since 1.8)
+            clf = LogisticRegression(C=self.args.C, class_weight="balanced", max_iter=self.args.max_iter)
+            clf.fit(x / token_norm.mean(), token_labels)
+            w[layer] = clf.coef_[0] / max(np.linalg.norm(clf.coef_[0]), EPS)
+            cos = (x @ w[layer]) / np.maximum(token_norm, EPS)
+            np.add.at(cos_sum[:, layer], text_of_token, cos)
+            np.add.at(cos_sq_sum[:, layer], text_of_token, cos ** 2)
+            del x
+        return w, cos_sum, cos_sq_sum, np.bincount(text_of_token, minlength=n_texts)
+
+    def run(self) -> None:
         args = self.args
-        test_data = load_data(args=args)["test"]
-        labels = np.asarray([item["label"] for item in test_data])
+        data = load_data(args=args)["test"]
+        got = self.collect(data)
+        del self.model, self.decoder, self.inference
+        torch.cuda.empty_cache()
+        labels, means, norms = got["labels"], got["means"], got["norms"]
+        w, cos_sum, cos_sq_sum, n_tokens = self.directions(got["states"], labels[got["text_of_token"]], got["text_of_token"],
+                                               len(labels))
+        del got
 
-        rows = [self.text_scores(item["text"]) for item in tqdm(test_data, desc="Scoring texts")]
-        valid = np.asarray([row is not None for row in rows])
-        y = labels[valid]
-        rows = [row for row in rows if row is not None]
-
-        print(
-            f"\nLayer-update features | model={args.model} dataset={args.dataset} "
-            f"| scored={valid.sum()} skipped={(~valid).sum()} skip_tokens={args.skip_tokens}"
+        proj = np.einsum("nld,ld->nl", means, w)  # (texts, L + 1), <m, w>
+        text_rows = (
+            (proj / np.maximum(np.linalg.norm(means, axis=2), EPS), r"$\cos(\bar h, w)$"),
+            (proj, r"$\langle \bar h, w \rangle$"),
+            (proj / norms, r"$\langle \bar h, w \rangle \,/\, \overline{\Vert h_t\Vert}$"),
         )
-        print("AUROC is flipped to >= 0.5; sign=+1: machine higher, sign=-1: human higher.")
+        layers = np.arange(self.n_layers)
+        configure_plot_style()
+        fig, axes = plt.subplots(5, 2, figsize=(13, 22.5))
+        letters = iter("abcdefgh")
+        for (score, name), (ax_group, ax_gap) in zip(text_rows, axes):
+            human, machine = score[labels == 0], score[labels == 1]
+            for values, group, color in ((human, "Human", HUMAN), (machine, "Machine", MACHINE)):
+                mean, sd = values.mean(axis=0), values.std(axis=0, ddof=1)
+                draw(ax_group, layers, mean, mean - sd, mean + sd, color, group)
+            diff = machine.mean(axis=0) - human.mean(axis=0)
+            sd = np.sqrt(machine.var(axis=0, ddof=1) + human.var(axis=0, ddof=1))
+            draw(ax_gap, layers, diff, diff - sd, diff + sd, INK, "Machine − human")
+            ax_group.set(title=f"({next(letters)}) Mean {name} per group (over texts)", ylabel=f"mean {name}")
+            ax_gap.set(title=f"({next(letters)}) Gap: machine − human", ylabel=rf"$\Delta$ mean {name}")
 
-        results = {name: {} for name in FEATURES}
-        for name in FEATURES:
-            print(f"\n=== {name} ===")
-            print(
-                f"{'layer':>6} {'sign':>5} {'human mean':>12} {'machine mean':>14} "
-                f"{'AUROC':>8} {'TPR@5%':>8}"
-            )
-            for layer in self.layers:
-                values = np.asarray([row[name][layer - 1] for row in rows])
-                # the joint family is nan for texts too short for the lags; score the rest
-                keep = ~np.isnan(values)
-                values, y_kept = values[keep], y[keep]
-                if len(np.unique(y_kept)) < 2:
-                    continue
-                sign = 1
-                metric = evaluation(y_kept, values)
-                if metric["auroc"] < 0.5:
-                    sign = -1
-                    metric = evaluation(y_kept, -values)
-                metric["sign"] = sign
-                results[name][layer] = metric
-                print(
-                    f"{layer:>6} {sign:>+5d} {values[y_kept == 0].mean():>12.4f} "
-                    f"{values[y_kept == 1].mean():>14.4f} "
-                    f"{metric['auroc']:>8.4f} {metric['tpr_at_fpr_0_05']:>8.4f}"
-                )
+        # row 4: mean and SD of cos(h_t, w) over all tokens of a group
+        name = r"$\langle h_t, w \rangle / \Vert h_t\Vert$"
+        mean, var = {}, {}
+        for c in (0, 1):
+            n = n_tokens[labels == c].sum()
+            mean[c] = cos_sum[labels == c].sum(axis=0) / n
+            var[c] = (cos_sq_sum[labels == c].sum(axis=0) - n * mean[c] ** 2) / (n - 1)
+        ax_group, ax_gap = axes[3]
+        for c, group, color in ((0, "Human", HUMAN), (1, "Machine", MACHINE)):
+            sd = np.sqrt(var[c])
+            draw(ax_group, layers, mean[c], mean[c] - sd, mean[c] + sd, color, group)
+        diff, sd = mean[1] - mean[0], np.sqrt(var[0] + var[1])
+        draw(ax_gap, layers, diff, diff - sd, diff + sd, INK, "Machine − human")
+        ax_group.set(title=f"(g) Mean {name} per group (over all tokens)", ylabel=f"mean {name}")
+        ax_gap.set(title="(h) Gap: machine − human", ylabel=rf"$\Delta$ mean {name}")
 
-        print("\n=== Summary: AUROC by layer ===")
-        for i in range(0, len(FEATURES), SUMMARY_COLUMNS):
-            names = FEATURES[i:i + SUMMARY_COLUMNS]
-            print(f"\n{'layer':>6} " + " ".join(f"{name:>{WIDTH}}" for name in names))
-            for layer in self.layers:
-                cells = [
-                    f"{results[name][layer]['auroc']:>{WIDTH}.4f}"
-                    if layer in results[name] else f"{'-':>{WIDTH}}"
-                    for name in names
-                ]
-                print(f"{layer:>6} " + " ".join(cells))
+        # row 5: spread of cos(h_t, w) within a text, and the share of the variance that lies between texts
+        with np.errstate(invalid="ignore", divide="ignore"):
+            text_mean = cos_sum / n_tokens[:, None]
+            within_var = (cos_sq_sum - n_tokens[:, None] * text_mean ** 2) / (n_tokens[:, None] - 1)
+        within_sd = np.sqrt(np.clip(within_var, 0, None))  # (texts, L + 1); NaN for one-token texts
+        ax_within, ax_icc = axes[4]
+        for c, group, color in ((0, "Human", HUMAN), (1, "Machine", MACHINE)):
+            sd_c = within_sd[labels == c]
+            mean, spread = np.nanmean(sd_c, axis=0), np.nanstd(sd_c, axis=0, ddof=1)
+            draw(ax_within, layers, mean, mean - spread, mean + spread, color, group)
+            between = np.nanvar(text_mean[labels == c], axis=0, ddof=1)
+            within = np.nanmean(within_var[labels == c], axis=0)
+            ax_icc.plot(layers, between / (between + within), color=color, lw=1.6, marker="o", markersize=3.5,
+                        label=group)
+        ax_within.set(title=f"(i) Within-text SD of {name}", ylabel="SD over a text's tokens")
+        ax_icc.set(title="(j) Share of the variance between texts (ICC)", ylabel="between / (between + within)",
+                   ylim=(0, 1))
 
-        print("\n=== Best layer per feature ===")
-        for name in FEATURES:
-            if not results[name]:
-                continue
-            layer, metric = max(results[name].items(), key=lambda kv: kv[1]["auroc"])
-            print(
-                f"{name:>{WIDTH}}: layer {layer:>3}  sign={metric['sign']:+d}  "
-                f"AUROC={metric['auroc']:.4f}"
-            )
-        return results
+        for ax in axes.flat:
+            ax.axhline(0, color="#57606A", lw=0.8)
+            ax.set_xlabel("Layer (0 = embeddings)")
+            ax.grid(axis="y", color="#E2E6EA", lw=0.6)
+            ax.set_axisbelow(True)
+            ax.legend(frameon=False, title=None if ax is ax_icc else "band: ±1 SD over texts" if ax is ax_within
+                      else "band: ±1 SD", title_fontsize=11)
+        fig.suptitle(f"L2 logistic-regression direction (C = {args.C}), {args.model}, {args.dataset} "
+                     f"({(labels == 0).sum()} + {(labels == 1).sum()} texts)")
+        fig.tight_layout()
+        path = os.path.join(cfg.base_dir, f"lr_text_token_{args.model}_{args.dataset}_s{args.seed}.pdf")
+        fig.savefig(path)
+        plt.close(fig)
+        print(f"Wrote {path}")
+
+
+def draw(ax, x: np.ndarray, y: np.ndarray, low: np.ndarray, high: np.ndarray, color: str, label: str) -> None:
+    ax.fill_between(x, low, high, color=color, alpha=0.25, lw=0)
+    ax.plot(x, y, color=color, lw=1.6, marker="o", markersize=3.5, label=label)
 
 
 def parse_args() -> Namespace:
@@ -262,21 +204,12 @@ def parse_args() -> Namespace:
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--max_tokens", type=int, default=1024)
-    parser.add_argument("--skip_tokens", type=int, default=10)
-    parser.add_argument(
-        "--layers", type=int, nargs="+", default=None,
-        help="Hidden-state indices; default is every transformer layer (1..L).",
-    )
+    parser.add_argument("--C", type=float, default=1.0, help="inverse L2 strength of the logistic regression")
+    parser.add_argument("--max_iter", type=int, default=1000, help="lbfgs iterations of the logistic regression")
     args = parser.parse_args()
     args.model_name = args.model
     return args
 
 
-def main() -> None:
-    args = parse_args()
-    LayerUpdates(args).run()
-
-
 if __name__ == "__main__":
-    main()
+    TextTokenDirection(parse_args()).run()

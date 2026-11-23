@@ -1,227 +1,184 @@
-"""Difference-of-means "AI direction" per layer, and every text's tokens projected onto it.
+"""
+Joint angle scores per text and layer, human vs machine. (The previous difference-of-means probe that lived in this
+file is in git, commit 1f43c88.)
 
-Layers ℓ = 0..L (0 = embeddings, ℓ = output of decoder layer ℓ, taken with forward hooks, so layer L comes before the
-final norm). Position 0 (the attention sink, with a norm far above the rest) is left out everywhere.
+Runs --model on every text of --dataset (split --split) as src.inference.Inference does (no special tokens). For each
+text, at each transformer layer ℓ = 1..L (layer 0 = embeddings), tokens whose norm is more than OUTLIER_FACTOR × the
+median token norm of that text and layer are removed (e.g. the attention sink at position 0). A token t enters a layer-ℓ
+score only if every state the score uses is kept (see the masks below).
 
-One forward pass per text; all activations are kept on the CPU in bfloat16 ((L + 1) · N · d · 2 bytes for N tokens,
-e.g. ~21 GB for 33 layers, 80k tokens, d = 4096); the class means are summed exactly (float64) during the pass.
-Probe, per layer, pooled over all tokens of all texts of the test split:
-    μ_M^ℓ, μ_H^ℓ = mean h_t^ℓ over the machine / human tokens,   w^ℓ = (μ_M − μ_H) / ‖μ_M − μ_H‖   (unit AI direction)
-Projection, per token t and layer ℓ:
-    proj_t = ⟨h_t^ℓ, w^ℓ⟩                       position along the AI direction (higher = more machine-like)
-    align_t = ⟨h_t^ℓ, w^ℓ⟩ / ‖h_t^ℓ‖ = cos(h_t, w)  the share of the token's norm that lies along the AI direction
-    per text: proj_mean, align_mean = means over its tokens.
-    References per layer: midpoint_proj = ⟨(μ_M + μ_H) / 2, w⟩ (the probe's decision boundary), human_proj /
-    machine_proj = ⟨μ_H, w⟩ / ⟨μ_M, w⟩ (token-pooled class means).
-Five text couples whose proj_mean diverges most at the selection layer (--layer; default: the layer with the highest
-AUROC of proj_mean): with pair_id in the data, the pairs with the largest |proj_mean(machine) − proj_mean(human)|;
-without, the k-th most machine-like machine text with the k-th most human-like human text, k = 1..5. Their per-token
-proj and align at every layer are saved.
-Note: the direction is fit on the same texts it scores (in-sample), so AUROC is optimistic.
+Per token t at layer ℓ (h_t^ℓ = hidden state, ĥ = h / ‖h‖, μ^ℓ = mean of the kept h_t^ℓ = the layer's centroid):
+    θ_t = ∠(h_{t−1}^ℓ, h_t^ℓ)      within layer, angle to the predecessor token        (src.zero intra angle)
+    φ_t = ∠(h_t^{ℓ−1}, h_t^ℓ)      across layers, angle of the token to itself one layer down  (src.zero inter angle)
+    ψ_t = ∠(μ^ℓ, h_t^ℓ)            within layer, angle to the centroid (the dominant direction of the layer)
+    ψ̄_t = ∠(μ^ℓ, h̄_t^ℓ)           h̄_t^ℓ = mean(h_{t−W+1}^ℓ, ..., h_t^ℓ), the last W = CONTEXT_W tokens incl. t
+    θ̄_t = mean_{j=1..K} ∠(h_{t−j}^ℓ, h_t^ℓ)   mean angle to the K = CONTEXT_K previous tokens
+Scores (mean over the tokens t that pass the mask):
+    joint             = mean_t √(θ_t φ_t)     as src.zero; mask: t, t−1 kept at ℓ and t kept at ℓ − 1
+    joint_ani         = mean_t √(ψ_t φ_t)     mask: t kept at ℓ and at ℓ − 1
+    joint_context_ani = mean_t √(ψ̄_t φ_t)    mask: t−W+1..t kept at ℓ and t kept at ℓ − 1
+    joint_context     = mean_t √(θ̄_t φ_t)    mask: t−K..t kept at ℓ and t kept at ℓ − 1
+    joint_semantic    = joint with θ and φ computed on p_t^ℓ = V_Sᵀ Norm(h_t^ℓ), semantic subspace of W_U
+    joint_reasoning   = the same in the reasoning subspace of W_U
+W_U subspaces as src.hs_anal.hs_anal.harp_bases: right singular vectors of the unembedding W_U, semantic = the top
+k = 0.95 d by singular value, reasoning = the remaining 0.05 d (smallest). Same basis at every layer; states go
+through the final norm W_U reads before projecting (the last layer is already normed by HF). The subspace scores use
+the same mask as joint (outliers found on the full-space norms), so they average over the same tokens.
+AUC (machine = 1): AUC of −score (> 0.5: machine has the smaller angles = more aligned).
 
-Output: output/test/dom_probe_{model}_{dataset}_s{seed}.npz (see "meta" for the shapes).
+Output: output/test/joint_scores_{model}_{dataset}_s{seed}.pdf. Page 1: table of the AUC of every score (rows) at every
+layer (columns). Page 2: one row per score, per layer the mean per group ±95% CI (left y-axis) and the AUC (right
+y-axis).
+
+    PYTHONPATH="${BASE_ZMGT}" uv run --project "${BASE_ZERO}" -m src.ideas.test --model l8b \
+        --dataset drlXDomainLen_wiki_300_tokens
 """
 
-import json
 import os
 from argparse import ArgumentParser, Namespace
-from datetime import datetime
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from sklearn.metrics import roc_auc_score
+from matplotlib.backends.backend_pdf import PdfPages
 from tqdm import tqdm
 
 from src.config import Config
+from src.hs_anal.hs_anal import HARP_SUBSPACES, auc_table, compare, figure, harp_bases
 from src.inference import Inference
-from src.utils import load_data
+from src.utils import load_data, return_device
 
 cfg = Config()
-
 OUTPUT_DIR = os.path.join(cfg.base_dir, "output", "test")
-MIN_TOKENS = 2  # position 0 is dropped, so a text needs one more token
-TOP_K = 5
+OUTLIER_FACTOR = 2
 EPS = 1e-12
+CONTEXT_W = 3  # joint_context_ani: tokens averaged (incl. t)
+CONTEXT_K = 3  # joint_context: previous tokens compared with t
+SCORES = ("joint", "joint_ani", "joint_context_ani", "joint_context") + tuple(f"joint_{s}" for s in HARP_SUBSPACES)
 
 
-class DomProbe:
-    def __init__(self, args: Namespace) -> None:
-        self.args = args
-        self.inference = Inference(model_name=args.model, args=args)
-        self.model, self.tokenizer = self.inference.model, self.inference.tokenizer
-        self.device = self.inference.device
-        self.decoder = self.model.get_decoder()
-        self.n_layers = self.model.config.num_hidden_layers + 1  # embeddings + decoder layers
-        self.states: list[torch.Tensor] = []
-        self.decoder.embed_tokens.register_forward_hook(self.record)
-        for layer in self.decoder.layers:
-            layer.register_forward_hook(self.record)
-
-    def record(self, module, inputs, output) -> None:
-        self.states.append(output[0] if isinstance(output, tuple) else output)
-
-    @torch.no_grad()
-    def hidden(self, ids: torch.Tensor) -> torch.Tensor:
-        """(T,) token ids -> (L + 1, T − 1, d) float32 states, position 0 dropped."""
-        self.states = []
-        self.decoder(input_ids=ids[None].to(self.device), use_cache=False)
-        h = torch.stack(self.states)[:, 0, 1:].float()
-        self.states = []
-        return h
-
-    def run(self) -> dict[str, np.ndarray]:
-        args = self.args
-        data = load_data(args=args)["test"]
-        ids = [self.tokenizer(item["text"], add_special_tokens=False, return_tensors="pt")["input_ids"][0]
-               for item in data]
-        labels = np.asarray([int(item["label"]) for item in data])
-        used = np.asarray([len(i) >= MIN_TOKENS for i in ids])
-
-        # one forward pass per text: all activations kept (CPU, bfloat16), class sums exact (float64)
-        states: list[torch.Tensor | None] = [None] * len(data)
-        sums = torch.zeros(2, self.n_layers, self.model.config.hidden_size, dtype=torch.float64, device=self.device)
-        counts = np.zeros(2)
-        for i in tqdm(np.nonzero(used)[0], desc="Activations"):
-            h = self.hidden(ids[i])
-            sums[labels[i]] += h.sum(dim=1).double()
-            counts[labels[i]] += h.shape[1]
-            states[i] = h.bfloat16().cpu()
-        del self.model, self.decoder, self.inference
-        torch.cuda.empty_cache()
-
-        # difference of means over all tokens, per layer
-        mu_h, mu_m = sums[0] / counts[0], sums[1] / counts[1]
-        gap = mu_m - mu_h
-        w = gap / gap.norm(dim=-1, keepdim=True).clamp_min(EPS)  # (L + 1, d)
-
-        # per-token projection and alignment
-        proj = [None] * len(data)
-        align = [None] * len(data)
-        for i in np.nonzero(used)[0]:
-            h = states[i].to(self.device).double()
-            states[i] = None
-            p = torch.einsum("ltd,ld->lt", h, w)
-            nan = torch.full((self.n_layers, 1), float("nan"), dtype=p.dtype, device=p.device)  # position 0
-            proj[i] = torch.cat([nan, p], dim=1).cpu().numpy()
-            align[i] = torch.cat([nan, p / h.norm(dim=-1).clamp_min(EPS)], dim=1).cpu().numpy()
-
-        empty = np.full(self.n_layers, np.nan)
-        proj_mean = np.stack([np.nanmean(p, axis=1) if p is not None else empty for p in proj])
-        align_mean = np.stack([np.nanmean(a, axis=1) if a is not None else empty for a in align])
-        auroc_proj = np.asarray([auroc(labels, proj_mean[:, l]) for l in range(self.n_layers)])
-        auroc_align = np.asarray([auroc(labels, align_mean[:, l]) for l in range(self.n_layers)])
-        layer = args.layer if args.layer is not None else int(np.nanargmax(auroc_proj))
-
-        couples, divergence, pair_ids = select(data, labels, proj_mean[:, layer], used)
-        max_t = max(len(ids[i]) for c in couples for i in c)
-        top_proj = np.full((len(couples), 2, self.n_layers, max_t), np.nan, dtype=np.float32)
-        top_align = np.full_like(top_proj, np.nan)
-        top_ids = np.full((len(couples), 2, max_t), -1, dtype=np.int64)
-        top_tokens = np.full((len(couples), 2, max_t), "", dtype=object)
-        for k, couple in enumerate(couples):
-            for side, i in enumerate(couple):  # side 0 = human, 1 = machine
-                n = len(ids[i])
-                top_proj[k, side, :, :n] = proj[i]
-                top_align[k, side, :, :n] = align[i]
-                top_ids[k, side, :n] = ids[i].numpy()
-                top_tokens[k, side, :n] = [self.tokenizer.decode([t]) for t in ids[i].tolist()]
-
-        reference = {
-            "midpoint_proj": ((mu_m + mu_h) / 2 * w).sum(dim=-1),
-            "human_proj": (mu_h * w).sum(dim=-1),
-            "machine_proj": (mu_m * w).sum(dim=-1),
-            "gap_norm": gap.norm(dim=-1),
-        }
-        meta = {
-            **vars(args),
-            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "method": "dom_probe",
-            "layer_numbering": "index l = layer l: 0 = embeddings, l = output of decoder layer l (layer L before the "
-                               "final norm)",
-            "selection_layer": layer,
-            "selection": "pairs by pair_id, ranked by |divergence|" if pair_ids is not None else
-                         "k-th most machine-like machine text with the k-th most human-like human text",
-            "token_counts": {"human": int(counts[0]), "machine": int(counts[1])},
-            "arrays": {
-                "label, used": "(texts,); label 1 = machine; used = scored (>= MIN_TOKENS tokens)",
-                "proj_mean, align_mean": "(texts, L + 1) float32, per-text mean over tokens 1..T-1 of <h_t, w> and "
-                                         "<h_t, w> / ||h_t||; NaN if not used",
-                "auroc_proj, auroc_align": "(L + 1,), label 1 = machine, in-sample",
-                "midpoint_proj, human_proj, machine_proj, gap_norm": "(L + 1,), <(mu_M + mu_H)/2, w>, <mu_H, w>, "
-                                                                     "<mu_M, w>, ||mu_M - mu_H||",
-                "top_text_index": "(5, 2) index in the test split, [:, 0] human, [:, 1] machine",
-                "top_pair_id, top_divergence": "(5,), pair_id ('' if unpaired) and proj_mean(machine) - "
-                                               "proj_mean(human) at selection_layer",
-                "top_proj, top_align": "(5, 2, L + 1, max T) float32, per token; index = token position; NaN at "
-                                       "position 0 and after the last token",
-                "top_token_ids, top_tokens, top_text": "(5, 2, max T) ids (-1 pad) and decoded strings ('' pad); "
-                                                       "(5, 2) texts",
-            },
-        }
-        return {
-            "meta": np.asarray(json.dumps(meta)),
-            "label": labels,
-            "used": used,
-            "proj_mean": proj_mean.astype(np.float32),
-            "align_mean": align_mean.astype(np.float32),
-            "auroc_proj": auroc_proj,
-            "auroc_align": auroc_align,
-            **{name: v.cpu().numpy() for name, v in reference.items()},
-            "top_text_index": np.asarray(couples),
-            "top_pair_id": np.asarray(pair_ids if pair_ids is not None else [""] * len(couples)),
-            "top_divergence": np.asarray(divergence),
-            "top_proj": top_proj,
-            "top_align": top_align,
-            "top_token_ids": top_ids,
-            "top_tokens": top_tokens.astype(str),
-            "top_text": np.asarray([[data[i]["text"] for i in c] for c in couples]),
-        }
+def masked_mean(x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    """Mean over the last dim of x where mask is True; NaN if nothing passes."""
+    count = mask.sum(dim=-1)
+    total = torch.where(mask, x, torch.zeros_like(x)).sum(dim=-1)
+    return torch.where(count > 0, total / count.clamp_min(1), torch.full_like(total, float("nan")))
 
 
-def auroc(labels: np.ndarray, x: np.ndarray) -> float:
-    """AUROC over the texts with a value; nan if one class has none."""
-    ok = np.isfinite(x)
-    if len(np.unique(labels[ok])) < 2:
-        return float("nan")
-    return float(roc_auc_score(labels[ok], x[ok]))
+def text_scores(h: torch.Tensor, bases: dict[str, torch.Tensor], final_norm: torch.nn.Module) -> dict[str, np.ndarray]:
+    """
+    h: (L + 1, T, D) hidden states of one text, index 0 = embeddings; bases: {subspace: (D, n_dims)} from harp_bases;
+    final_norm: the model's final norm. Every score is (L,) at layers 1..L.
+    """
+    n = h.norm(dim=-1).clamp_min(EPS)  # (L + 1, T)
+    keep = n <= OUTLIER_FACTOR * n.median(dim=1, keepdim=True).values  # (L + 1, T)
+    u = h / n[..., None]  # unit states
+    mu = (h * keep[..., None]).sum(dim=1) / keep.sum(dim=1, keepdim=True).clamp_min(1)  # (L + 1, D), kept tokens
+    mu_u = mu / mu.norm(dim=-1, keepdim=True).clamp_min(EPS)  # (L + 1, D) unit centroid
+    T = h.shape[1]
+    W, K = CONTEXT_W, CONTEXT_K
+
+    def angle(c: torch.Tensor) -> torch.Tensor:
+        return torch.acos(c.clamp(-1.0, 1.0))
+
+    def unit(x: torch.Tensor) -> torch.Tensor:
+        return x / x.norm(dim=-1, keepdim=True).clamp_min(EPS)
+
+    # angles at layers 1..L
+    theta = angle((u[1:, :-1] * u[1:, 1:]).sum(dim=-1))  # (L, T − 1): ∠(h_{t−1}, h_t), t = 1..T−1
+    phi = angle((u[:-1] * u[1:]).sum(dim=-1))  # (L, T): ∠(h_t^{ℓ−1}, h_t^ℓ)
+    psi = angle((u[1:] * mu_u[1:, None]).sum(dim=-1))  # (L, T): ∠(μ^ℓ, h_t^ℓ)
+    # ψ̄: centroid vs mean of h_{t−W+1..t}, t = W−1..T−1
+    h_ctx = torch.stack([h[1:, W - 1 - j:T - j] for j in range(W)]).mean(dim=0)  # (L, T − W + 1, D)
+    psi_ctx = angle((unit(h_ctx) * mu_u[1:, None]).sum(dim=-1))  # (L, T − W + 1)
+    # θ̄: mean over j = 1..K of ∠(h_{t−j}, h_t), t = K..T−1
+    theta_ctx = torch.stack([angle((u[1:, K - j:T - j] * u[1:, K:]).sum(dim=-1))
+                             for j in range(1, K + 1)]).mean(dim=0)  # (L, T − K)
+
+    # masks over tokens: every state a score uses must be kept
+    mask_t = keep[1:] & keep[:-1]  # (L, T): h_t^ℓ, h_t^{ℓ−1}
+    mask_prev = mask_t[:, 1:] & keep[1:, :-1]  # (L, T − 1), t = 1..T−1
+    mask_w = mask_t[:, W - 1:].clone()  # (L, T − W + 1), t = W−1..T−1
+    for j in range(1, W):
+        mask_w &= keep[1:, W - 1 - j:T - j]
+    mask_k = mask_t[:, K:].clone()  # (L, T − K), t = K..T−1
+    for j in range(1, K + 1):
+        mask_k &= keep[1:, K - j:T - j]
+
+    scores = {
+        "joint": masked_mean((theta * phi[:, 1:]).sqrt(), mask_prev),
+        "joint_ani": masked_mean((psi * phi).sqrt(), mask_t),
+        "joint_context_ani": masked_mean((psi_ctx * phi[:, W - 1:]).sqrt(), mask_w),
+        "joint_context": masked_mean((theta_ctx * phi[:, K:]).sqrt(), mask_k),
+    }
+
+    # joint in the W_U subspaces: p = Norm(h) @ basis, same mask as joint
+    dtype = next(final_norm.parameters()).dtype
+    z = torch.cat([final_norm(h[:-1].to(dtype)).float(), h[-1:]])  # (L + 1, T, D); last layer already normed
+    for sub, basis in bases.items():
+        p = unit(z @ basis)  # (L + 1, T, n_dims)
+        theta_s = angle((p[1:, :-1] * p[1:, 1:]).sum(dim=-1))  # (L, T − 1)
+        phi_s = angle((p[:-1] * p[1:]).sum(dim=-1))  # (L, T)
+        scores[f"joint_{sub}"] = masked_mean((theta_s * phi_s[:, 1:]).sqrt(), mask_prev)
+    return {key: value.double().cpu().numpy() for key, value in scores.items()}
 
 
-def select(data: list[dict], labels: np.ndarray, score: np.ndarray, used: np.ndarray
-           ) -> tuple[list[tuple[int, int]], list[float], list[str] | None]:
-    """TOP_K (human index, machine index) couples whose score diverges most; pair ids if the data are paired."""
-    ok = used & np.isfinite(score)
-    if all("pair_id" in item for item in data):
-        pairs: dict[str, dict[int, int]] = {}
-        for i, item in enumerate(data):
-            pairs.setdefault(item["pair_id"], {})[int(item["label"])] = i
-        rows = [(pid, p[0], p[1]) for pid, p in pairs.items() if {0, 1} <= p.keys() and ok[p[0]] and ok[p[1]]]
-        rows.sort(key=lambda r: -abs(score[r[2]] - score[r[1]]))
-        rows = rows[:TOP_K]
-        return [(h, m) for _, h, m in rows], [float(score[m] - score[h]) for _, h, m in rows], [r[0] for r in rows]
-    human = [i for i in np.argsort(score) if ok[i] and labels[i] == 0][:TOP_K]
-    machine = [i for i in np.argsort(-score) if ok[i] and labels[i] == 1][:TOP_K]
-    couples = [(int(h), int(m)) for h, m in zip(human, machine)]
-    return couples, [float(score[m] - score[h]) for h, m in couples], None
-
-
-def parse_args() -> Namespace:
-    parser = ArgumentParser()
-    parser.add_argument("--model", type=str, required=True)
-    parser.add_argument("--dataset", type=str, required=True)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--layer", type=int, default=None,
-                        help="layer for picking the top couples (default: highest AUROC of proj_mean)")
-    args = parser.parse_args()
-    args.model_name = args.model
-    return args
+def collect(args: Namespace) -> tuple[dict[str, np.ndarray], np.ndarray]:
+    """Per-text scores, each (N, L), and labels (N,)."""
+    device = return_device()
+    inference = Inference(model_name=args.model)
+    model = inference.model
+    with torch.no_grad():
+        bases = {k: v.to(device) for k, v in harp_bases(model.get_output_embeddings().weight.to(device)).items()}
+    print("W_U subspace dims: " + ", ".join(f"{k} {v.shape[1]}" for k, v in bases.items()))
+    data = load_data(args=args)[args.split]
+    out = {key: [] for key in SCORES}
+    labels = []
+    for item in tqdm(data, desc="Running texts"):
+        hidden_states = inference.run(item, args)["hidden_states"]
+        with torch.no_grad():
+            scores = text_scores(torch.stack(hidden_states).to(device).float(), bases, model.model.norm)
+        for key in SCORES:
+            out[key].append(scores[key])
+        labels.append(int(item["label"]))
+    del inference
+    torch.cuda.empty_cache()
+    return {key: np.stack(value) for key, value in out.items()}, np.asarray(labels)
 
 
 def main() -> None:
-    args = parse_args()
-    arrays = DomProbe(args).run()
+    parser = ArgumentParser()
+    parser.add_argument("--model", type=str, default="l8b")
+    parser.add_argument("--dataset", type=str, default="drlXDomainLen_wiki_300_tokens")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--split", type=str, default="test")
+    args = parser.parse_args()
+    args.model_name = args.model
+
+    s, labels = collect(args)
+    bad = {key: int((~np.isfinite(v)).sum()) for key, v in s.items() if not np.isfinite(v).all()}
+    if bad:
+        raise ValueError(f"scores with NaN (no token passed the mask): {bad}")
+
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    path = os.path.join(OUTPUT_DIR, f"dom_probe_{args.model}_{args.dataset}_s{args.seed}.npz")
-    np.savez_compressed(path, **arrays)
+    rows = [
+        ("joint", "joint: √(θ φ), predecessor & layer below"),
+        ("joint_ani", "joint_ani: √(ψ φ), centroid & layer below"),
+        ("joint_context_ani", f"joint_context_ani: √(ψ̄ φ), centroid vs mean of last {CONTEXT_W} tokens & layer below"),
+        ("joint_context", f"joint_context: √(θ̄ φ), mean angle to {CONTEXT_K} previous tokens & layer below"),
+        ("joint_semantic", "joint_semantic: √(θ φ) in the semantic subspace of W_U (top 95%)"),
+        ("joint_reasoning", "joint_reasoning: √(θ φ) in the reasoning subspace of W_U (bottom 5%)"),
+    ]
+    panels = [[{"stats": compare(s[key], labels, reverse=True), "title": title, "quantity": "angle (rad)",
+                "auc_label": "AUC (−score, machine = 1)"}] for key, title in rows]
+    path = os.path.join(OUTPUT_DIR, f"joint_scores_{args.model}_{args.dataset}_s{args.seed}.pdf")
+    title = f"Joint scores, tokens > {OUTLIER_FACTOR}× median removed, {args.model}, {args.dataset}"
+    with PdfPages(path) as pdf:  # page 1: AUC table, page 2: plots
+        for fig in (auc_table({key: p[0]["stats"]["auc"] for (key, _), p in zip(rows, panels)}, title, first_layer=1),
+                    figure(panels, title, first_layer=1, xlabel="transformer layer", groups=True)):
+            pdf.savefig(fig, bbox_inches="tight")
+            plt.close(fig)
     print(f"Wrote {path}")
 
 

@@ -15,15 +15,18 @@ ROOT_DIR="${BASE_ZMGT:-$(pwd)}"
 cd "${ROOT_DIR}"
 
 MODELS=("l8b")
+
 DATASETS=(
+    "drlXDomainLen_wiki_300_tokens"
     # "raidDomain_wiki"
     #  "drlXAttacks_character_deletion"
-                "drlXpaired_wiki_gpt_4o_256_tokens" 
+                # "drlXpaired_wiki_gpt_4o_256_tokens" 
             # "drlXpaired_novel_gpt_4o_256_tokens" 
             #     "drlXDomainLen_academic_300_tokens"
             #   "drlXDomainLen_seo_300_tokens"
         #  "drlXAttacks_character_deletion"
-        #    "drlXAttacks_decoder_paraphrasing"
+            # "drlXAttacks_decoder_paraphrasing"
+            # "drlXDomain_novel"
         #   "drlXAttacks_character_deletion"
     #   "drlXDomain_academic"
     #  "drlXDomain_wiki"

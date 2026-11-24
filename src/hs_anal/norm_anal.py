@@ -20,9 +20,15 @@ Scores per text (h_t = hidden state of token t at layer ℓ, K = number of kept 
        shared_energy = ‖μ‖²                     (shared: the part all tokens of the text have in common)
        token_energy  = (1/K) Σ_t ‖h_t − μ‖²     (token-specific: spread around the text's mean)
    energy = shared_energy + token_energy exactly.
+4. Post-norm norm, per layer ℓ = 0..L−1, on the same kept tokens as above
+       post_norm = (1/K) Σ_t ‖RMSNorm_ℓ(h_t)‖,   RMSNorm_ℓ(h) = γ_ℓ ⊙ h / rms(h),  rms(h) = sqrt(mean_d h_d² + ε)
+   RMSNorm_ℓ is the input_layernorm of transformer layer ℓ + 1, i.e. what the layer actually reads from the residual
+   state h^ℓ (before attention). It is captured with a forward hook. Without γ this norm would be sqrt(D) for every
+   token, so any group difference in post_norm comes from how the direction of h_t lines up with the learned scale γ_ℓ,
+   not from the size of h_t.
 
 Output: output/hidden_states/norms/norms_{model}_{dataset}_s{seed}.npz with labels (N,) (0 = human, 1 = machine) and
-one array per score: norm, energy, shared_energy, token_energy (N, L), index = layer ℓ; log_growth (N, L − 1),
+one array per score: norm, energy, shared_energy, token_energy, post_norm (N, L), index = layer ℓ; log_growth (N, L − 1),
 index i = transition i → i + 1.
 
     PYTHONPATH="${BASE_ZMGT}" uv run --project "${BASE_ZERO}" -m src.hs_anal.norm_anal --model l8b \
@@ -46,10 +52,23 @@ OUTLIER_FACTOR = 2  # tokens with norm > OUTLIER_FACTOR × median (per text and 
 EPS = 1e-12
 
 
-def text_scores(h: torch.Tensor) -> dict[str, np.ndarray]:
+def add_norm_hooks(model: torch.nn.Module, captured: dict[int, torch.Tensor]) -> list:
     """
-    h: (L, T, D) float64 hidden states of one text, layers 0..L−1. Returns norm, energy, shared_energy, token_energy
-    (L,) and log_growth (L − 1,), on the kept tokens.
+    Forward hook on the input_layernorm of every decoder layer: captured[i] = per-token norm (T,) of that norm's
+    output, in float64. Layer i (0-based module index) reads hidden_states[i], so captured[i] lines up with layer i
+    of the residual-stream scores. Returns the hook handles (call .remove() on each when done).
+    """
+    def hook(i: int):
+        def fn(module, inputs, output):
+            captured[i] = output.detach().squeeze(0).double().norm(dim=-1)
+        return fn
+    return [layer.input_layernorm.register_forward_hook(hook(i)) for i, layer in enumerate(model.model.layers)]
+
+
+def text_scores(h: torch.Tensor, post_n: torch.Tensor) -> dict[str, np.ndarray]:
+    """
+    h: (L, T, D) float64 hidden states of one text, layers 0..L−1; post_n: (L, T) token norms after input_layernorm.
+    Returns norm, energy, shared_energy, token_energy, post_norm (L,) and log_growth (L − 1,), on the kept tokens.
     """
     n = h.norm(dim=-1)  # (L, T)
     keep = n <= OUTLIER_FACTOR * n.median(dim=1, keepdim=True).values
@@ -65,6 +84,7 @@ def text_scores(h: torch.Tensor) -> dict[str, np.ndarray]:
         "energy": (n.pow(2) * w).sum(dim=1) / k,
         "shared_energy": mu.pow(2).sum(dim=-1),
         "token_energy": ((h - mu[:, None]).pow(2).sum(dim=-1) * w).sum(dim=1) / k,
+        "post_norm": (post_n * w).sum(dim=1) / k,
         "log_growth": ((log_n[1:] - log_n[:-1]) * pair).sum(dim=1) / pair.sum(dim=1).clamp_min(1),
     }
     return {key: value.cpu().numpy() for key, value in scores.items()}
@@ -74,16 +94,25 @@ def collect(args: Namespace) -> tuple[dict[str, np.ndarray], np.ndarray]:
     """Per-text scores, each (N, ...), and labels (N,)."""
     device = return_device()
     inference = Inference(model_name=args.model)
+    captured: dict[int, torch.Tensor] = {}
+    handles = add_norm_hooks(inference.model, captured)
     data = load_data(args=args)[args.split]
     out, labels = {}, []
-    for item in tqdm(data, desc="Running texts"):
-        hidden_states = inference.run(item, args)["hidden_states"]
-        with torch.no_grad():
-            h = torch.stack(hidden_states[:-1]).to(device).double()  # drop the final-normed last state
-            scores = text_scores(h)
-        for key, value in scores.items():
-            out.setdefault(key, []).append(value)
-        labels.append(int(item["label"]))
+    try:
+        for item in tqdm(data, desc="Running texts"):
+            captured.clear()
+            hidden_states = inference.run(item, args)["hidden_states"]
+            with torch.no_grad():
+                h = torch.stack(hidden_states[:-1]).to(device).double()  # drop the final-normed last state
+                post_n = torch.stack([captured[i] for i in range(len(captured))]).to(device)
+                assert post_n.shape == h.shape[:2], f"hooked norms {tuple(post_n.shape)} vs states {tuple(h.shape[:2])}"
+                scores = text_scores(h, post_n)
+            for key, value in scores.items():
+                out.setdefault(key, []).append(value)
+            labels.append(int(item["label"]))
+    finally:
+        for handle in handles:
+            handle.remove()
     del inference
     torch.cuda.empty_cache()
     return {key: np.stack(value) for key, value in out.items()}, np.asarray(labels)

@@ -18,13 +18,18 @@ cd "${ROOT_DIR}"
 nvidia-smi
 
 MODEL="l8b"
-DATASET="drlXDomainLen_wiki_300_tokens"
+DATASETS=(
+    "drlXDomainLen_wiki_300_tokens"
+    "drlXDomainLen_academic_300_tokens"
+)
 SEED=42
 SPLIT="test"
 
-echo "Running norm_anal: Dataset=$DATASET, Model=$MODEL, Seed=$SEED, Split=$SPLIT"
-PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.hs_anal.norm_anal \
-    --model "$MODEL" \
-    --dataset "$DATASET" \
-    --seed "$SEED" \
-    --split "$SPLIT"
+for DATASET in "${DATASETS[@]}"; do
+    echo "Running norm_anal: Dataset=$DATASET, Model=$MODEL, Seed=$SEED, Split=$SPLIT"
+    PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.hs_anal.norm_anal \
+        --model "$MODEL" \
+        --dataset "$DATASET" \
+        --seed "$SEED" \
+        --split "$SPLIT"
+done

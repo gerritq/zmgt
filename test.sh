@@ -18,6 +18,7 @@ MODELS=("l8b")
 
 DATASETS=(
     "drlXDomainLen_wiki_300_tokens"
+    "drlXDomainLen_academic_300_tokens"
     # "raidDomain_wiki"
     #  "drlXAttacks_character_deletion"
                 # "drlXpaired_wiki_gpt_4o_256_tokens" 
@@ -48,7 +49,7 @@ for MODEL in "${MODELS[@]}"; do
             echo "------------------------------------------------"
             echo "Running test: Dataset=$DATASET, Model=$MODEL, Seed=$SEED"
             echo "------------------------------------------------"
-            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.ideas.test2 \
+            PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.ideas.test \
                 --model "$MODEL" \
                 --dataset "$DATASET" \
                 --seed "$SEED"

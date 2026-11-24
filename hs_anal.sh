@@ -27,7 +27,7 @@ SPLIT="test"
 
 for DATASET in "${DATASETS[@]}"; do
     echo "Running norm_anal: Dataset=$DATASET, Model=$MODEL, Seed=$SEED, Split=$SPLIT"
-    PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.hs_anal.norm_anal \
+    PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.hs_anal.hs_across \
         --model "$MODEL" \
         --dataset "$DATASET" \
         --seed "$SEED" \

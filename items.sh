@@ -118,3 +118,14 @@ PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.t_main \
 #         --model "$MODEL" \
 #         --dataset "$DATASET"
 # done
+
+
+# ----------------------------------------------------
+# f_norms
+# ----------------------------------------------------
+# hidden-state norms from src.hs_anal.norm_anal (output/hidden_states/norms/norms_*.npz): group means, machine − human
+# gap and AUC per layer, for norm, post-norm norm, log growth and the energy split. --png also writes PNGs
+# PYTHONPATH="${ROOT_DIR}" uv run --project "${BASE_ZERO}" -m src.items.f_norms \
+#     --model l8b \
+#     --dataset drlXDomainLen_wiki_300_tokens \
+#     --seed 42

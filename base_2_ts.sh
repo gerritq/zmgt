@@ -2,12 +2,12 @@
 #SBATCH --job-name=b2_ts
 #SBATCH --output=logs/%j.log
 #SBATCH --error=logs/%j.err
-#SBATCH --time=03:00:00
+#SBATCH --time=02:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=60GB
 #SBATCH --partition=gpu,nmes_gpu
-#SBATCH --constraint=h100
-#SBATCH --exclude=erc-hpc-comp035,erc-hpc-comp054,erc-hpc-comp250
+#SBATCH --constraint=h200
+#SBATCH --exclude=arc-hpc-comp054
 
 # Runtime analysis (latency and GPU memory, batch size 1) of the base2 detectors. Output: output/time_space/
 # Needs the .venv_bino environment, which lives in BASE_ZERO (as in base2.sh); the code runs from BASE_ZMGT.

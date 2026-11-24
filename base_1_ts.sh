@@ -5,8 +5,8 @@
 #SBATCH --time=02:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=40GB
-#SBATCH --constraint=h100
-#SBATCH --exclude=erc-hpc-comp054,erc-hpc-comp040
+#SBATCH --constraint=h200
+#SBATCH --exclude=arc-hpc-comp054
 #SBATCH --partition=gpu,nmes_gpu
 
 # Runtime analysis (latency and GPU memory, batch size 1) of the base1 detectors and our joint score.

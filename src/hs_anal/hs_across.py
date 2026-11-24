@@ -16,13 +16,14 @@ Per token and transition ℓ−1 → ℓ, with z = h^{ℓ−1}, Δ = h^ℓ − h
     Δ∥ = α z,  Δ⊥ = Δ − α z                   (Δ = Δ∥ + Δ⊥, ⟨z, Δ⊥⟩ = 0)
     par_norm   = ‖Δ∥‖ = |α| ‖z‖
     perp_norm  = ‖Δ⊥‖
+    perp_rel   = ‖Δ⊥‖ / ‖z‖                   (sideways push relative to the length of z, per token)
     delta_norm = ‖Δ‖                          (‖Δ‖² = ‖Δ∥‖² + ‖Δ⊥‖²)
 The angle follows from the split: tan(angle) = ‖Δ⊥‖ / ((1 + α) ‖z‖).
 
 Per text, each score is the mean over the used tokens of that transition.
 
 Output: output/hidden_states/across/across_{model}_{dataset}_s{seed}.npz with labels (N,) (0 = human, 1 = machine)
-and one array per score: angle, alpha, par_norm, perp_norm, delta_norm (N, L − 1), index i = transition i → i + 1.
+and one array per score: angle, alpha, par_norm, perp_norm, perp_rel, delta_norm (N, L − 1), index i = transition i → i + 1.
 
     PYTHONPATH="${BASE_ZMGT}" uv run --project "${BASE_ZERO}" -m src.hs_anal.hs_across --model l8b \
         --dataset drlXDomainLen_wiki_300_tokens
@@ -48,7 +49,7 @@ EPS = 1e-12
 def update_split(h: torch.Tensor) -> dict[str, torch.Tensor]:
     """
     h: (L, T, D) float64, layers 0..L−1. Per token and transition ℓ−1 → ℓ, with z = h^{ℓ−1} and Δ = h^ℓ − z:
-    angle, alpha, par_norm, perp_norm, delta_norm, each (L − 1, T).
+    angle, alpha, par_norm, perp_norm, perp_rel, delta_norm, each (L − 1, T).
     """
     z = h[:-1]
     delta = h[1:] - z
@@ -61,6 +62,7 @@ def update_split(h: torch.Tensor) -> dict[str, torch.Tensor]:
         "alpha": alpha,
         "par_norm": alpha.abs() * z_norm,
         "perp_norm": perpendicular.norm(dim=-1),
+        "perp_rel": perpendicular.norm(dim=-1) / z_norm,
         "delta_norm": delta.norm(dim=-1),
     }
 

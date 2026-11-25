@@ -9,7 +9,9 @@
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{graphicx}
-\graphicspath{{figures/}}
+% figures/: static images; ../output/...: figures made by the repo's scripts, used as they are (compile from the repo)
+\graphicspath{{figures/}{../output/hidden_states/norms/}{../output/hidden_states/within/}{../output/hidden_states/across/}
+  {../output/hidden_states/surprisal/}{../output/time_space/}}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc}
 \usepackage{pgfplots}
@@ -123,7 +125,7 @@
       \end{block}
     \end{column}
     \begin{column}{0.31\textwidth}
-      \begin{block}{Paper 3 \,|\, TRACE}
+      \begin{block}{Paper 3 \,|\, JAS (Joint Angular Score)}
         \small Can hidden-state \emph{geometry} power a \emph{zero-shot} detector?\\[3pt]
         {\scriptsize\textcolor{gray}{Draft (ACL 2027 submission)}}
       \end{block}
@@ -161,7 +163,7 @@
       \end{block}
     \end{column}
     \begin{column}{0.31\textwidth}
-      \begin{block}{Paper 3 \,|\, TRACE}
+      \begin{block}{Paper 3 \,|\, JAS (Joint Angular Score)}
         \small
         \textbf{AI text leaves a geometric fingerprint inside the LLM.}
         \vspace{-2pt}\begin{enumerate}\footnotesize\setlength{\itemsep}{2pt}
@@ -577,10 +579,10 @@
 \end{frame}
 
 % ###############################################################
-\section[TRACE]{Paper 3: TRACE}
+\section[JAS]{Paper 3: JAS (Joint Angular Score)}
 % ###############################################################
 
-\begin{frame}{TRACE \,|\, Motivation}
+\begin{frame}{JAS \,|\, Motivation}
   \begin{columns}[c]
     \begin{column}{0.56\textwidth}
       \begin{itemize}
@@ -607,7 +609,7 @@
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{TRACE \,|\, Analysis: Texts as Trajectories Through Hidden-State Space}
+\begin{frame}{JAS \,|\, Analysis: Texts as Trajectories Through Hidden-State Space}
   \begin{columns}[c]
     \begin{column}{0.44\textwidth}
       \centering
@@ -634,33 +636,45 @@
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{TRACE \,|\, Analysis: Within-Layer -- AI Tokens Are More Aligned}
-  \begin{columns}[T]
-    \begin{column}{0.49\textwidth}
-      \centering
-      \includegraphics[width=\textwidth,height=3.6cm,keepaspectratio]{within_angle.pdf}\\
-      {\tiny Adjacent tokens (solid) vs.\ random pairs (dashed); grey: Cohen's $d$.}
-    \end{column}
-    \begin{column}{0.49\textwidth}
-      \centering
-      \includegraphics[width=\textwidth,height=3.6cm,keepaspectratio]{z_fig3.png}\\
-      {\tiny Local part: shuffled minus original angle.}
-    \end{column}
-  \end{columns}
-  \footnotesize
+\begin{frame}{JAS \,|\, Analysis: Within-Layer -- AI Tokens Are More Aligned}
+  \centering
+  \includegraphics[width=\textwidth,height=3.65cm,keepaspectratio]{f_within_talk_A.pdf}\\
+  {\tiny Machine $-$ human gap per layer, Llama-3.1-8B, four DetectRL-X domains (300 texts each); grey band: layers 4--15.}
+  \vspace{0.05cm}
+  \raggedright\footnotesize
   \begin{itemize}\setlength{\itemsep}{1pt}
-    \item In early-to-middle layers, AI text has \textbf{smaller angles between adjacent tokens}
-          and 5--10\% higher hidden-state energy.
-    \item Shuffling token order leaves the gap intact: the local part is \textbf{identical} for both
-          classes $\Rightarrow$ the effect comes from a tighter token cloud, not closer neighbours.
+    \item \textbf{Within-layer angle:} in layers 4--15, adjacent AI tokens are \textbf{1--1.7$^\circ$ closer} on average
+          (up to 2.4$^\circ$), in \textbf{all four domains}.
+    \item \textbf{Anisotropy:} in the same layers, AI tokens share one direction more strongly
+          (mean pairwise cosine +0.02 to +0.05, on $\approx$0.24 for human text).
   \end{itemize}
   \begin{takeaway}
-    \textbf{Finding 1:} in early-to-middle layers, AI tokens are more tightly clustered around a shared direction.
+    \textbf{Finding 1:} in early-to-middle layers, AI tokens are closer to their neighbours because the whole text
+    points more strongly in one shared direction.
   \end{takeaway}
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{TRACE \,|\, Intuition: AI Text Lives in a Narrower Cone}
+\begin{frame}{JAS \,|\, Analysis: Within-Layer -- A Shared Direction}
+  \centering
+  \includegraphics[width=\textwidth,height=3.65cm,keepaspectratio]{f_within_talk_B.pdf}\\
+  {\tiny Left: angle after subtracting each text's mean hidden state. Right: angle between random token pairs minus
+  adjacent pairs (no shuffle test for News yet).}
+  \vspace{0.05cm}
+  \raggedright\footnotesize
+  \begin{itemize}\setlength{\itemsep}{1pt}
+    \item \textbf{Centred:} removing the shared direction shrinks the gap to $-$0.3 to $-$0.6$^\circ$
+          (about a third), and flips it for Academic.
+    \item \textbf{Random pairs $-$ neighbours:} word order adds no AI advantage -- the gap is $\approx$0 for Wikipedia and
+          SEO, and AI neighbours are even \emph{less} local in Academic.
+  \end{itemize}
+  \begin{takeaway}
+    The gap comes from a tighter token cloud around a shared direction, not from smoother token-to-token steps.
+  \end{takeaway}
+\end{frame}
+
+% ---------------------------------------------------------------
+\begin{frame}{JAS \,|\, Intuition: AI Text Lives in a Narrower Cone}
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
       \centering
@@ -708,52 +722,57 @@
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{TRACE \,|\, Analysis: Across-Layer -- Layers Rotate AI Tokens Less}
-  \begin{columns}[T]
-    \begin{column}{0.49\textwidth}
-      \centering
-      \includegraphics[width=\textwidth,height=3.6cm,keepaspectratio]{across_angle.pdf}\\
-      {\tiny Angle of the same token between consecutive layers; grey: Cohen's $d$.}
-    \end{column}
-    \begin{column}{0.49\textwidth}
-      \centering
-      \includegraphics[width=\textwidth,height=3.6cm,keepaspectratio]{z_fig5.png}\\
-      {\tiny Human--AI gap in $\log\tan\varphi$, split into four terms.}
-    \end{column}
-  \end{columns}
-  \vspace{2pt}
-  \footnotesize
+\begin{frame}{JAS \,|\, Analysis: Across-Layer -- Layers Rotate AI Tokens Less}
+  \centering
+  \includegraphics[width=\textwidth,height=3.65cm,keepaspectratio]{f_across_talk_A.pdf}\\
+  {\tiny Angle of the same token between consecutive layers: machine $-$ human gap per layer, four DetectRL-X domains;
+  grey band: layers 4--15.}
+  \vspace{0.05cm}
+  \raggedright\footnotesize
   \begin{itemize}\setlength{\itemsep}{1pt}
-    \item Layers rotate AI tokens \textbf{less at every layer}; the gap is largest in layers 4--13
-          (up to 2.6$^\circ$).
-    \item Decomposition: larger \textbf{state size} (45\%) and \textbf{forward growth} (30\%) explain
-          $\sim$3/4 of the gap -- AI tokens do not receive smaller updates.
+    \item In layers 4--15, layers rotate AI tokens \textbf{1.2--2.5$^\circ$ less} on average (up to 3.4$^\circ$),
+          in \textbf{all four domains}.
+    \item The gap is largest around \textbf{layers 5--7} and shrinks in the upper layers.
   \end{itemize}
   \begin{takeaway}
-    \textbf{Finding 2:} layers rotate AI tokens less, mainly because AI hidden states are larger.
+    Across layers, the hidden state of an AI token turns less from one layer to the next.
   \end{takeaway}
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{TRACE \,|\, Analysis: Not Just Predictability in Disguise}
-  \begin{columns}[T]
-    \begin{column}{0.49\textwidth}
-      \centering
-      \includegraphics[width=0.82\textwidth]{z_fig6.png}\\
-      {\tiny Within-layer angle by surprisal decile (layers 5--15).}
-    \end{column}
-    \begin{column}{0.49\textwidth}
-      \centering
-      \includegraphics[width=0.82\textwidth]{z_fig7.png}\\
-      {\tiny Across-layer angle by surprisal decile (layers 5--15).}
-    \end{column}
-  \end{columns}
-  \vspace{0.1cm}
-  \footnotesize
-  \begin{itemize}
+\begin{frame}{JAS \,|\, Analysis: Across-Layer -- Why AI Tokens Rotate Less}
+  \centering
+  \vspace{-4pt}
+  {\small $\displaystyle \tan\varphi=\frac{\lVert\Delta_\perp\rVert}{(1+\alpha)\,\lVert z\rVert}$,\quad
+  $z=\mathbf h^{\ell-1}_t$,\; $\Delta=\mathbf h^{\ell}_t-z=\alpha z+\Delta_\perp$}\\[2pt]
+  \includegraphics[width=\textwidth,height=3.4cm,keepaspectratio]{f_across_talk_B.pdf}\\
+  {\tiny Machine $-$ human gap of each factor per layer; $\alpha$: update along $z$ ($<0$ shrinks $z$),
+  $\Delta_\perp$: update at a right angle to $z$.}
+  \vspace{0.05cm}
+  \raggedright\footnotesize
+  \begin{itemize}\setlength{\itemsep}{0pt}
+    \item In layers 4--15, AI states are \textbf{larger} ($\lVert z\rVert$ +2.4--3.4\%), \textbf{shrink less}
+          ($\alpha$ +0.013--0.027, on $\approx-0.065$) and get a \textbf{smaller sideways push}
+          ($\lVert\Delta_\perp\rVert/\lVert z\rVert$ $-$3 to $-$6\%).
+  \end{itemize}
+  \begin{takeaway}
+    \textbf{Finding 2:} layers rotate AI tokens less because three effects point the same way -- larger states,
+    less shrinking and a smaller sideways push.
+  \end{takeaway}
+\end{frame}
+
+% ---------------------------------------------------------------
+\begin{frame}{JAS \,|\, Analysis: Not Just Predictability in Disguise}
+  \centering
+  \includegraphics[width=\textwidth,height=3.65cm,keepaspectratio]{f_surprisal_talk.pdf}\\
+  {\tiny Machine $-$ human angle gap for tokens of equal surprisal (deciles per domain), averaged over layers 4--15.}
+  \vspace{0.05cm}
+  \raggedright\footnotesize
+  \begin{itemize}\setlength{\itemsep}{1pt}
     \item Many zero-shot detectors rely on token predictability, and AI text has more low-surprisal tokens.
-    \item Comparing tokens \textbf{within the same surprisal decile}, human angles exceed AI angles in
-          every decile (across-layer gap: a stable 1.5--2.2$^\circ$).
+    \item Comparing tokens \textbf{within the same surprisal decile}: the across-layer gap is negative in
+          \textbf{every decile and domain} ($-$0.6 to $-$2.8$^\circ$); the within-layer gap in almost every one,
+          largest for the most predictable tokens.
   \end{itemize}
   \begin{takeaway}
     The geometric signal captures human--AI differences that token surprisal does not explain.
@@ -761,7 +780,28 @@
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{TRACE \,|\, Methodology: The Joint-Angle Score}
+\begin{frame}{JAS \,|\, Analysis: Where in the Hidden State Is the Signal?}
+  \centering
+  \includegraphics[width=\textwidth,height=3.65cm,keepaspectratio]{f_harp_talk.pdf}\\
+  {\tiny Machine $-$ human angle gap per layer in each subspace, averaged over four DetectRL-X domains; grey band:
+  layers 4--15.}
+  \vspace{0.05cm}
+  \raggedright\footnotesize
+  \begin{itemize}\setlength{\itemsep}{1pt}
+    \item \textbf{Subspaces:} an SVD of the unembedding $W_U$ ranks hidden directions by how strongly the output reads
+          them; \textbf{semantic} = the top 95\%, \textbf{reasoning} = the bottom 5\% (205 of 4096 directions);
+          states pass through the final norm first.
+    \item \textbf{Results:} in layers 4--15 the gap is \textbf{largest in the reasoning subspace} -- within:
+          $-$2.2$^\circ$ vs.\ $-$1.0$^\circ$ in the full space ($\sim$2$\times$); across: $-$2.2$^\circ$ vs.\ $-$1.5$^\circ$
+          ($\sim$1.5$\times$) -- while semantic matches the full space.
+  \end{itemize}
+  \begin{takeaway}
+    The human--AI difference is concentrated in a small subspace that the output layer barely reads.
+  \end{takeaway}
+\end{frame}
+
+% ---------------------------------------------------------------
+\begin{frame}{JAS \,|\, Methodology: The Joint Angular Score}
   \begin{columns}[c]
     \begin{column}{0.62\textwidth}
       \small
@@ -797,7 +837,7 @@
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{TRACE \,|\, Result 1: Detection Across Domains}
+\begin{frame}{JAS \,|\, Result 1: Detection Across Domains}
   \centering
   \includegraphics[width=0.9\textwidth]{z_tab1.png}\\
   {\tiny Domain subset of DetectRL-X: AUC and TPR at 5\% FPR (mean$_{\text{std}}$) against 12 zero-shot detectors.}
@@ -805,16 +845,16 @@
   \raggedright\small
   \begin{itemize}
     \item Best average AUC (\textbf{96.8} vs.\ 88.7 for IRM) and TPR@5\% (\textbf{83.3}, +21.1).
-    \item Largest gain on Webtext (+24.1 AUC), where most detectors collapse; only on Novel is TRACE
+    \item Largest gain on Webtext (+24.1 AUC), where most detectors collapse; only on Novel is JAS
           below the best baseline ($-$4.9).
   \end{itemize}
   \begin{takeaway}
-    TRACE is the strongest zero-shot detector across domains -- especially at low false-positive rates.
+    JAS is the strongest zero-shot detector across domains -- especially at low false-positive rates.
   \end{takeaway}
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{TRACE \,|\, Result 2: Detection Across Generators}
+\begin{frame}{JAS \,|\, Result 2: Detection Across Generators}
   \centering
   \includegraphics[width=0.68\textwidth]{z_tab2.png}\\
   {\tiny Generator subset of DetectRL-X: AUC and TPR at 5\% FPR against 12 zero-shot detectors.}
@@ -825,12 +865,12 @@
     \item Largest gain on Gemini 2.5 Flash (+11.3 AUC, +57.3 TPR@5\%), where most baselines barely detect anything at low FPR.
   \end{itemize}
   \begin{takeaway}
-    TRACE detects text from frontier generators far more reliably than existing zero-shot detectors.
+    JAS detects text from frontier generators far more reliably than existing zero-shot detectors.
   \end{takeaway}
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{TRACE \,|\, Result 3: Robustness to Evasion Attacks}
+\begin{frame}{JAS \,|\, Result 3: Robustness to Evasion Attacks}
   \centering
   \includegraphics[width=0.8\textwidth]{z_fig8.png}\\
   {\tiny AUC under 11 evasion attacks; $\Delta$ = gain over the strongest baseline.}
@@ -838,15 +878,15 @@
   \raggedright\small
   \begin{itemize}
     \item Three attack families: character perturbations, paraphrasing and structural rewrites.
-    \item TRACE wins in every setting (+0.03 to +0.27 AUC), most clearly under character substitution.
+    \item JAS wins in every setting (+0.03 to +0.27 AUC), most clearly under character substitution.
   \end{itemize}
   \begin{takeaway}
-    TRACE remains the best detector under all 11 evasion attacks.
+    JAS remains the best detector under all 11 evasion attacks.
   \end{takeaway}
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{TRACE \,|\, Result 4: Short Texts}
+\begin{frame}{JAS \,|\, Result 4: Short Texts}
   \begin{columns}[c]
     \begin{column}{0.50\textwidth}
       \centering
@@ -855,19 +895,38 @@
     \end{column}
     \begin{column}{0.47\textwidth}
       \begin{itemize}
-        \item TRACE reaches $\sim$0.91 AUC with only \textbf{64 tokens}, rising to $\sim$0.97 at 512.
+        \item JAS reaches $\sim$0.91 AUC with only \textbf{64 tokens}, rising to $\sim$0.97 at 512.
         \item Best detector at \textbf{every length}; the runner-up (IRM) goes from $\sim$0.75 to $\sim$0.87.
       \end{itemize}
       \vspace{0.2cm}
       \begin{takeaway}
-        TRACE stays reliable even on short texts.
+        JAS stays reliable even on short texts.
       \end{takeaway}
     \end{column}
   \end{columns}
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{TRACE \,|\, Result 5: Token-Level Interpretability}
+\begin{frame}{JAS \,|\, Result 5: Speed and Memory}
+  \centering
+  \includegraphics[width=\textwidth,height=3.55cm,keepaspectratio]{f_time_space_talk.pdf}\\
+  {\tiny Per text at batch size 1 on one NVIDIA H200 (300 Wikipedia texts); latency: mean $\pm$ std; memory: peak
+  allocated, weights included.}
+  \vspace{0.05cm}
+  \raggedright\footnotesize
+  \begin{itemize}\setlength{\itemsep}{1pt}
+    \item \textbf{Fastest}, on par with IRM: 16\,ms per text -- one forward pass of one model; 6.6$\times$ faster
+          than Binoculars and $\sim$20$\times$ faster than Lastde++ and DNA-DetectLLM.
+    \item \textbf{Memory:} 15\,GB for one 8B model, below the two-model detectors (17--52\,GB); only IRM (two 1B models)
+          needs less.
+  \end{itemize}
+  \begin{takeaway}
+    JAS is cheap to run: no training, no second model, one forward pass per text.
+  \end{takeaway}
+\end{frame}
+
+% ---------------------------------------------------------------
+\begin{frame}{JAS \,|\, Result 6: Token-Level Interpretability}
   \centering
   \includegraphics[width=0.8\textwidth]{z_fig10.png}\\
   {\tiny Per-token joint angle $\sqrt{\theta\varphi}$ at layer 8 for a human (left) and an AI-generated (right) Wikipedia text (GPT-4o).}
@@ -883,7 +942,7 @@
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{TRACE \,|\, Main Takeaways}
+\begin{frame}{JAS \,|\, Main Takeaways}
   \small
   \renewcommand{\arraystretch}{1.5}
   \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.45\textwidth} >{\raggedright\arraybackslash}p{0.50\textwidth}@{}}

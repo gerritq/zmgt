@@ -12,15 +12,19 @@ attention sink at t = 0). A pair (s, t) is used only if both tokens are kept at 
 distance in the text (a dropped token is not skipped over).
 
 Scores per text, at each layer ℓ = 0..L−1 (K = number of kept tokens, μ = (1/K) Σ_t h_t over the kept tokens):
-    within           = mean_t ∠(h_{t−1}, h_t), over used consecutive pairs
+    within           = mean_t ∠(h_{t−1}, h_t), over used consecutive pairs (radians)
+    within_cos       = mean_t cos(h_{t−1}, h_t), the same pairs as cosines
     anisotropy       = mean over used pairs s ≠ t of cos(h_s, h_t)
                        (= (‖Σ_t u_t‖² − K) / (K (K − 1)), u_t = h_t / ‖h_t‖)
     within_centred   = mean_t ∠(h_{t−1} − μ, h_t − μ), over used consecutive pairs
+Neighbours vs. all pairs of the same text, both cosines: within_cos − anisotropy (> 0: neighbours are more alike than
+random pairs).
 At layer LAG_LAYER only, for each k in LAGS:
     within_lag[k]    = mean_t ∠(h_{t−k}, h_t), over used pairs at distance k (raw states; k = 1 is within at that layer)
 
 Output: output/hidden_states/within/within_{model}_{dataset}_s{seed}.npz with labels (N,) (0 = human, 1 = machine),
-within, anisotropy, within_centred (N, L), index = layer ℓ; within_lag (N, len(LAGS)), column j = lag LAGS[j]; lags
+within, within_cos, anisotropy, within_centred (N, L), index = layer ℓ; within_lag (N, len(LAGS)),
+column j = lag LAGS[j]; lags
 (len(LAGS),) and lag_layer (scalar) for reference. NaN where a text has no used pair (e.g. fewer than k + 1 tokens).
 
 Per-token angles, in a separate file within_tokens_{model}_{dataset}_s{seed}.npz: at LAG_LAYER, for the first
@@ -52,21 +56,27 @@ EPS = 1e-12
 NAN = float("nan")
 
 
+def cosine(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    """Cosine between matching rows: (..., D), (..., D) -> (...), clamped to [−1, 1]."""
+    cos = (a * b).sum(dim=-1) / (a.norm(dim=-1) * b.norm(dim=-1)).clamp_min(EPS)
+    return cos.clamp(-1.0, 1.0)
+
+
 def angle(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     """Angle in radians between matching rows: (..., D), (..., D) -> (...)."""
-    cos = (a * b).sum(dim=-1) / (a.norm(dim=-1) * b.norm(dim=-1)).clamp_min(EPS)
-    return torch.acos(cos.clamp(-1.0, 1.0))
+    return torch.acos(cosine(a, b))
 
 
-def lag_angle(h: torch.Tensor, keep: torch.Tensor, k: int) -> torch.Tensor:
+def lag_angle(h: torch.Tensor, keep: torch.Tensor, k: int, measure=angle) -> torch.Tensor:
     """
-    h: (..., T, D), keep: (..., T) -> (...) mean of ∠(h_{t−k}, h_t) over t with both tokens kept; NaN if no pair.
+    h: (..., T, D), keep: (..., T) -> (...) mean of measure(h_{t−k}, h_t) (angle or cosine) over t with both tokens
+    kept; NaN if no pair.
     """
     if h.shape[-2] <= k:
         return torch.full(h.shape[:-2], NAN, dtype=h.dtype, device=h.device)
     pair = (keep[..., k:] & keep[..., :-k]).to(h.dtype)
     n = pair.sum(dim=-1)
-    mean = (angle(h[..., :-k, :], h[..., k:, :]) * pair).sum(dim=-1) / n.clamp_min(1)
+    mean = (measure(h[..., :-k, :], h[..., k:, :]) * pair).sum(dim=-1) / n.clamp_min(1)
     return torch.where(n > 0, mean, NAN)
 
 
@@ -84,8 +94,8 @@ def token_angles(h: torch.Tensor, keep: torch.Tensor) -> torch.Tensor:
 
 def text_scores(h: torch.Tensor) -> dict[str, np.ndarray]:
     """
-    h: (L, T, D) float64 hidden states of one text, layers 0..L−1. Returns within, anisotropy, within_centred (L,),
-    within_lag (len(LAGS),) at LAG_LAYER and token_angle (N_TOKENS,) at LAG_LAYER.
+    h: (L, T, D) float64 hidden states of one text, layers 0..L−1. Returns within, within_cos, anisotropy,
+    within_centred (L,), within_lag (len(LAGS),) at LAG_LAYER and token_angle (N_TOKENS,) at LAG_LAYER.
     """
     n = h.norm(dim=-1)  # (L, T)
     keep = n <= OUTLIER_FACTOR * n.median(dim=1, keepdim=True).values
@@ -98,6 +108,7 @@ def text_scores(h: torch.Tensor) -> dict[str, np.ndarray]:
 
     scores = {
         "within": lag_angle(h, keep, 1),
+        "within_cos": lag_angle(h, keep, 1, measure=cosine),
         "anisotropy": torch.where(k >= 2, anisotropy, NAN),
         "within_centred": lag_angle(h - mu[:, None], keep, 1),
         "within_lag": torch.stack([lag_angle(h[LAG_LAYER], keep[LAG_LAYER], lag) for lag in LAGS]),

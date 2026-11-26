@@ -7,6 +7,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
+\usepackage[round]{natbib}
 \usepackage{array}
 \usepackage{graphicx}
 % figures/: static images; ../output/...: figures made by the repo's scripts, used as they are (compile from the repo)
@@ -46,6 +47,12 @@
 \newenvironment{questionblock}[1]{%
   \setbeamercolor{block title}{fg=black, bg=human!30}%
   \setbeamercolor{block body}{fg=black, bg=human!10}%
+  \begin{block}{#1}}{\end{block}}
+
+% Light-grey approach box
+\newenvironment{approachblock}[1]{%
+  \setbeamercolor{block title}{fg=black, bg=black!15}%
+  \setbeamercolor{block body}{fg=black, bg=black!5}%
   \begin{block}{#1}}{\end{block}}
 
 % Light-green takeaway box
@@ -599,11 +606,13 @@
         How can we design a \textbf{zero-shot}, \textbf{representation-based} AI text detector?
       \end{questionblock}
       \vspace{0.1cm}
-      {\small
-      \begin{enumerate}
-        \item Do human and AI hidden states differ \emph{per text} -- and how?
-        \item Can these differences power zero-shot detection?
-      \end{enumerate}}
+      \begin{approachblock}{Approach}
+        \small
+        \begin{enumerate}
+          \item Do human and AI hidden states differ \emph{per text} -- and how?
+          \item Can these differences power zero-shot detection?
+        \end{enumerate}
+      \end{approachblock}
     \end{column}
   \end{columns}
 \end{frame}
@@ -620,56 +629,98 @@
       \small
       \begin{itemize}
         \item Feed a text through a surrogate LM -- we use \textbf{Llama-3.1-8B} -- and treat its hidden states as a
-              \textbf{trajectory}, an idea borrowed from research on reasoning.
+              \textbf{trajectory}, an idea borrowed from research on reasoning and language processing
+              {\footnotesize\citep{wang2025latent,hosseini2023large}}.
         \item \textcolor{mainblue}{\textbf{Within-layer}}: how representations move from token to
               token at a fixed layer $\ell$ $\rightarrow$ angle $\theta^{\ell}_t$.
         \item \textcolor{machine!80!black}{\textbf{Across-layer}}: how one token's representation
               changes from layer to layer $\rightarrow$ angle $\varphi^{\ell}_t$.
         \item Both views are measured by \textbf{angular deviation}: the angle between consecutive hidden states.
       \end{itemize}
-      \vspace{-6pt}
-      \[
-        \angle(\mathbf a,\mathbf b)=\arccos\frac{\langle\mathbf a,\mathbf b\rangle}{\lVert\mathbf a\rVert\,\lVert\mathbf b\rVert}
-      \]
     \end{column}
   \end{columns}
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{JAS \,|\, Analysis: Within-Layer -- AI Tokens Are More Aligned}
+\begin{frame}{JAS \,|\, Analysis: The Two Trajectories, Formally}
+  \small
+  Let $x=(x_1,\dots,x_T)$ be a text and $\mathbf h_t^{\ell}\in\mathbb R^d$ the hidden state of token $x_t$ at layer
+  $\ell\in\{0,\dots,L\}$ of the surrogate LM ($\ell=0$: embeddings). Angles between hidden states:
+  \[
+    \angle(\mathbf a,\mathbf b)=\arccos\frac{\langle\mathbf a,\mathbf b\rangle}{\lVert\mathbf a\rVert\,\lVert\mathbf b\rVert}
+  \]
+  \vspace{-4pt}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textcolor{mainblue}{\textbf{Within-layer trajectory}} -- fix a layer $\ell$, move along the text:
+      \[
+        \mathcal W^{\ell}(x)=\big(\mathbf h_1^{\ell},\,\mathbf h_2^{\ell},\,\dots,\,\mathbf h_T^{\ell}\big)
+      \]
+      step angle between consecutive tokens:
+      \[
+        \theta_t^{\ell}=\angle\big(\mathbf h_{t-1}^{\ell},\,\mathbf h_t^{\ell}\big),\quad t=2,\dots,T
+      \]
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textcolor{machine!80!black}{\textbf{Across-layer trajectory}} -- fix a token $x_t$, move through the layers:
+      \[
+        \mathcal A_t(x)=\big(\mathbf h_t^{0},\,\mathbf h_t^{1},\,\dots,\,\mathbf h_t^{L}\big)
+      \]
+      step angle between consecutive layers:
+      \[
+        \varphi_t^{\ell}=\angle\big(\mathbf h_t^{\ell-1},\,\mathbf h_t^{\ell}\big),\quad \ell=1,\dots,L
+      \]
+    \end{column}
+  \end{columns}
+  \vspace{2pt}
+  \begin{takeaway}
+    A text gives one within-layer trajectory per layer and one across-layer trajectory per token; small angles mean
+    a smooth, slowly turning path.
+  \end{takeaway}
+\end{frame}
+
+% ---------------------------------------------------------------
+\begin{frame}{JAS \,|\, Analysis}
+  \vfill
+  \centering
+  {\Large Do the two trajectories differ \textbf{systematically}\\[4pt] between human and AI text?\\[10pt]
+  And if so, \textbf{how}?}
+  \vfill
+\end{frame}
+
+% ---------------------------------------------------------------
+\begin{frame}{JAS \,|\, Analysis: Within-Layer -- AI Tokens Are Closer}
   \centering
   \includegraphics[width=\textwidth,height=3.65cm,keepaspectratio]{f_within_talk_A.pdf}\\
   {\tiny Machine $-$ human gap per layer, Llama-3.1-8B, four DetectRL-X domains (300 texts each); grey band: layers 4--15.}
   \vspace{0.05cm}
   \raggedright\footnotesize
   \begin{itemize}\setlength{\itemsep}{1pt}
-    \item \textbf{Within-layer angle:} in layers 4--15, adjacent AI tokens are \textbf{1--1.7$^\circ$ closer} on average
-          (up to 2.4$^\circ$), in \textbf{all four domains}.
-    \item \textbf{Anisotropy:} in the same layers, AI tokens share one direction more strongly
-          (mean pairwise cosine +0.02 to +0.05, on $\approx$0.24 for human text).
+    \item In layers 4--15, adjacent AI tokens are \textbf{1--1.7$^\circ$ closer} on average (up to 2.4$^\circ$), in
+          \textbf{all four domains}.
+    \item Outside this band the gap is small and changes sign across domains.
   \end{itemize}
   \begin{takeaway}
-    \textbf{Finding 1:} in early-to-middle layers, AI tokens are closer to their neighbours because the whole text
-    points more strongly in one shared direction.
+    In early-to-middle layers, AI tokens are closer to their neighbours. \textbf{Why?}
   \end{takeaway}
 \end{frame}
 
 % ---------------------------------------------------------------
-\begin{frame}{JAS \,|\, Analysis: Within-Layer -- A Shared Direction}
+\begin{frame}{JAS \,|\, Analysis: Within-Layer -- Why Are AI Neighbours Closer?}
   \centering
-  \includegraphics[width=\textwidth,height=3.65cm,keepaspectratio]{f_within_talk_B.pdf}\\
-  {\tiny Left: angle after subtracting each text's mean hidden state. Right: angle between random token pairs minus
-  adjacent pairs (no shuffle test for News yet).}
+  \includegraphics[width=\textwidth,height=3.1cm,keepaspectratio]{f_within_talk_B.pdf}\\
+  {\tiny Machine $-$ human gap per layer, Llama-3.1-8B. Centred: each text's mean hidden state subtracted. Right:
+  random token pairs minus adjacent pairs (no News yet).}
   \vspace{0.05cm}
   \raggedright\footnotesize
-  \begin{itemize}\setlength{\itemsep}{1pt}
-    \item \textbf{Centred:} removing the shared direction shrinks the gap to $-$0.3 to $-$0.6$^\circ$
-          (about a third), and flips it for Academic.
-    \item \textbf{Random pairs $-$ neighbours:} word order adds no AI advantage -- the gap is $\approx$0 for Wikipedia and
-          SEO, and AI neighbours are even \emph{less} local in Academic.
+  \begin{itemize}\setlength{\itemsep}{0pt}
+    \item \textbf{Anisotropy:} AI tokens share one direction more strongly (+0.02 to +0.05, on $\approx$0.24).
+    \item \textbf{Centred:} removing it shrinks the gap to about a third ($-$0.3 to $-$0.6$^\circ$).
+    \item \textbf{Random pairs $-$ neighbours:} word order adds no AI advantage ($\approx$0, or less local).
   \end{itemize}
   \begin{takeaway}
-    The gap comes from a tighter token cloud around a shared direction, not from smoother token-to-token steps.
+    \textbf{Finding 1:} within-layer angles are smaller because machine text is more anisotropic than human text in
+    early-to-middle layers.
   \end{takeaway}
 \end{frame}
 
@@ -735,7 +786,50 @@
     \item The gap is largest around \textbf{layers 5--7} and shrinks in the upper layers.
   \end{itemize}
   \begin{takeaway}
-    Across layers, the hidden state of an AI token turns less from one layer to the next.
+    Across layers, the hidden state of an AI token turns less from one layer to the next. \textbf{Why?}
+  \end{takeaway}
+\end{frame}
+
+% ---------------------------------------------------------------
+\begin{frame}{JAS \,|\, Analysis: Across-Layer -- Decomposing a Layer Update}
+  \begin{columns}[c]
+    \begin{column}{0.46\textwidth}
+      \centering
+      \begin{tikzpicture}[scale=1.25, >={Stealth[length=2.2mm]}]
+        % z, its extension by alpha z, the perpendicular part and the new state
+        \draw[->, very thick, black!70] (0,0) -- (2.6,0) node[midway, below=2pt] {$z=\mathbf h^{\ell-1}_t$};
+        \draw[->, very thick, mainblue] (2.6,0) -- (3.4,0) node[midway, below=2pt] {$\Delta_\parallel=\alpha z$};
+        \draw[->, very thick, machine!80!black] (3.4,0) -- (3.4,1.7) node[midway, right=2pt] {$\Delta_\perp$};
+        \draw[->, very thick, bad] (0,0) -- (3.4,1.7) node[midway, above left=1pt] {$\mathbf h^{\ell}_t$};
+        \draw[black!50] (3.22,0) -- (3.22,0.18) -- (3.4,0.18);
+        \draw[thick] (0.9,0) arc[start angle=0, end angle=26.6, radius=0.9];
+        \node at (1.12,0.24) {$\varphi$};
+        \node[font=\scriptsize, black!60, align=center] at (1.7,-0.75)
+          {adjacent: $(1+\alpha)\lVert z\rVert$ \quad opposite: $\lVert\Delta_\perp\rVert$};
+      \end{tikzpicture}
+    \end{column}
+    \begin{column}{0.52\textwidth}
+      \small
+      Following \citet{he2026disentangling}, split each layer update $\Delta=\mathbf h^{\ell}_t-z$ along $z$:
+      \[
+        \alpha=\frac{\langle\Delta,z\rangle}{\lVert z\rVert^2},\qquad
+        \Delta_\parallel=\alpha z,\qquad \Delta_\perp=\Delta-\alpha z
+      \]
+      \vspace{-2pt}
+      \begin{itemize}\setlength{\itemsep}{1pt}
+        \item \textcolor{mainblue}{$\Delta_\parallel$} \textbf{rescales} $z$ ($\alpha>0$ grows it, $\alpha<0$ shrinks it);
+              \textcolor{machine!80!black}{$\Delta_\perp$} \textbf{turns} it ($\Delta_\perp\perp z$).
+        \item So $\mathbf h^{\ell}_t=(1+\alpha)\,z+\Delta_\perp$: a right triangle, and
+      \end{itemize}
+      \[
+        \tan\varphi=\frac{\text{opposite}}{\text{adjacent}}=\frac{\lVert\Delta_\perp\rVert}{(1+\alpha)\,\lVert z\rVert}
+      \]
+    \end{column}
+  \end{columns}
+  \vspace{2pt}
+  \begin{takeaway}
+    The angle is small when the state is large ($\lVert z\rVert$), grows along itself ($\alpha$), or gets a small
+    sideways push ($\lVert\Delta_\perp\rVert$).
   \end{takeaway}
 \end{frame}
 
@@ -980,6 +1074,13 @@
     \item How do text representations differ in models trained \textbf{only on machine-generated}
           vs.\ \textbf{only on human-written} text?
   \end{itemize}
+\end{frame}
+
+% ===============================================================
+\begin{frame}{References}
+  \footnotesize
+  \bibliographystyle{plainnat}
+  \bibliography{references}
 \end{frame}
 
 % ===============================================================

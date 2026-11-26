@@ -42,6 +42,7 @@ from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 
 from src.config import Config
+from src.ideas.stats_plots import compare, figure
 from src.inference import Inference
 from src.utils import load_data, return_device
 from src.zero import angle

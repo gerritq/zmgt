@@ -35,7 +35,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from tqdm import tqdm
 
 from src.config import Config
-from src.hs_anal.hs_anal import auc_table, compare, figure
+from src.ideas.stats_plots import auc_table, compare, figure
 from src.inference import Inference
 from src.utils import load_data, return_device
 

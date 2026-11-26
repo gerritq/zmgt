@@ -19,7 +19,8 @@ MODELS=("l8b")
 DATASETS=(
     # "drlXDomainLen_wiki_300_tokens"
     # "drlXDomainLen_academic_300_tokens"
-    # "raidDomain_wiki"
+     "raidDomain_wiki"
+     "drlXAttacks_decoder_paraphrasing"
     #  "drlXAttacks_character_deletion"
                 # "drlXpaired_wiki_gpt_4o_256_tokens" 
             # "drlXpaired_novel_gpt_4o_256_tokens" 
@@ -27,7 +28,7 @@ DATASETS=(
             #   "drlXDomainLen_seo_300_tokens"
         #  "drlXAttacks_character_deletion"
             #  "drlXAttacks_decoder_paraphrasing"
-             "drlXDomain_novel"
+            #  "drlXDomain_novel"
         #   "drlXAttacks_character_deletion"
     #   "drlXDomain_academic"
     #  "drlXDomain_wiki"
@@ -35,7 +36,7 @@ DATASETS=(
 #  "drlXDomain_academic"
 #   "samplingTemperature_1_0"
 # "editlens_amazon_reviews" "editlens_fineweb_edu"
-   "samplingTemperature_0_9"
+#    "samplingTemperature_0_9"
 #      "samplingTemperature_1_0"
 )
 SEEDS=(42)

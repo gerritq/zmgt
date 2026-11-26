@@ -22,6 +22,12 @@ Per text and layer ℓ, with θ_t = ∠(p_{t−1}^ℓ, p_t^ℓ) (within) and φ_
     within = mean θ_t             over t with t−1 and t kept at ℓ
     across = mean φ_t             over t kept at ℓ−1 and at ℓ
     joint  = mean √(θ_t φ_t)      over t with both angles (t−1 and t kept at ℓ, t kept at ℓ−1)   (joint = JAS)
+Embedding-normalised variants (embedding_mean_ratio, as zero/src/tests/emb_norm.py), each over the same tokens as
+the score it normalises; θ_t^0 = the within angle at the embedding layer, φ_t^1 = the across angle of the first step
+(embedding → layer 1, the first across angle that involves the embedding; so across_emb = 1 at layer 1):
+    within_emb = mean θ_t / mean θ_t^0
+    across_emb = mean φ_t / mean φ_t^1
+    joint_emb  = mean √((θ_t / mean θ_t^0)(φ_t / mean φ_t^1)) = joint / √(mean θ_t^0 · mean φ_t^1)
 NaN where a text has no such token. Each score is evaluated as −score (lower angle = machine, as JAS): AUROC per layer,
 texts with NaN at that layer dropped.
 
@@ -42,7 +48,6 @@ from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 
 from src.config import Config
-from src.ideas.stats_plots import compare, figure
 from src.inference import Inference
 from src.utils import load_data, return_device
 from src.zero import angle
@@ -53,7 +58,8 @@ OUTLIER_FACTOR = 2  # tokens with norm > OUTLIER_FACTOR × median (per text and 
 SPLITS = {"5pct": lambda d: round(0.05 * d), "256": lambda d: 256}  # size n_R of the reasoning subspace
 INPUTS = ("raw", "norm")  # the state that is projected: h, or the final-normed Norm(h)
 JAS_LAYER = 8  # the layer JAS uses (transformer layer 8)
-SCORES = ("within", "across", "joint")
+SCORES = ("within", "across", "joint", "within_emb", "across_emb", "joint_emb")
+EPS = 1e-12
 
 
 def bases(unembedding: torch.Tensor) -> dict[str, torch.Tensor]:
@@ -87,10 +93,19 @@ def space_scores(p: torch.Tensor, keep: torch.Tensor) -> dict[str, torch.Tensor]
     cur = p[1:]
     theta = angle(cur[:, :-1], cur[:, 1:])  # (L − 1, T − 1): ∠(p_{t−1}^ℓ, p_t^ℓ)
     phi = angle(p[:-1, 1:], cur[:, 1:])  # (L − 1, T − 1): ∠(p_t^{ℓ−1}, p_t^ℓ)
+    theta_0 = angle(p[0, :-1], p[0, 1:]).expand_as(theta)  # θ_t at the embedding layer, the same for every ℓ
+    phi_1 = phi[:1].expand_as(phi)  # φ_t of the first step (embedding → layer 1), the same for every ℓ
     within_used = keep[1:, :-1] & keep[1:, 1:]  # t−1 and t kept at ℓ
     across_used = keep[:-1, 1:] & keep[1:, 1:]  # t kept at ℓ−1 and ℓ
-    return {"within": masked_mean(theta, within_used), "across": masked_mean(phi, across_used),
-            "joint": masked_mean((theta * phi).sqrt(), within_used & across_used)}
+    joint_used = within_used & across_used
+    within, across = masked_mean(theta, within_used), masked_mean(phi, across_used)
+    joint = masked_mean((theta * phi).sqrt(), joint_used)
+    # embedding_mean_ratio: divided by the mean reference angle over the same tokens as the score at ℓ.
+    theta_ref_joint, phi_ref_joint = masked_mean(theta_0, joint_used), masked_mean(phi_1, joint_used)
+    return {"within": within, "across": across, "joint": joint,
+            "within_emb": within / masked_mean(theta_0, within_used).clamp_min(EPS),
+            "across_emb": across / masked_mean(phi_1, across_used).clamp_min(EPS),
+            "joint_emb": joint / (theta_ref_joint * phi_ref_joint).sqrt().clamp_min(EPS)}
 
 
 @torch.no_grad()

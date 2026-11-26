@@ -8,3 +8,5 @@
 *.snm
 *.toc
 *.synctex.gz
+*.bbl
+*.blg

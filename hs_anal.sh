@@ -17,7 +17,7 @@
 ROOT_DIR="${BASE_ZMGT:-$(pwd)}"
 cd "${ROOT_DIR}"
 
-ALL_SCRIPTS=("norm_anal" "hs_across" "hs_within" "hs_surprisal")
+ALL_SCRIPTS=("norm_anal" "hs_across" "hs_within" "hs_surprisal" "hs_attn")
 
 TARGET="${1:-all}"
 TARGET="${TARGET%.py}"

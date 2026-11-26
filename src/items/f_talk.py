@@ -5,8 +5,9 @@ the machine − human gap of the per-text means (unpaired): one faded line per d
 the CI combines the domains' standard errors). The grey band marks BAND (the early-to-middle layers).
 
 output/hidden_states/within/ (src.hs_anal.hs_within)
-    f_within_talk_A.pdf     within-layer angle (°) | anisotropy (mean pairwise cosine)
-    f_within_talk_B.pdf     within-layer angle on centred states (°) | neighbours vs. all pairs: hs_within's
+    f_within_talk_A.pdf     within-layer angle (°), one panel
+    f_within_talk_B.pdf     anisotropy (mean pairwise cosine) | within-layer angle on centred states (°) |
+                            neighbours vs. all pairs: hs_within's
                             within_cos − anisotropy (cosine) where the file has it, else the shuffle test of
                             src.geometric_metrics.desc3 (L = A_shuffled − A_original, degrees)
 output/hidden_states/across/ (src.hs_anal.hs_across; ‖z‖ from src.hs_anal.norm_anal)
@@ -158,14 +159,17 @@ def within_figures(args: Namespace) -> None:
                                 else ("Shuffled − original angle", "machine − human (°)"))
     print(f"neighbour panel ({unit}) for: " + ", ".join(scores["local"]))
     x = np.arange(len(scores["within"]["wiki"][0]))
-    for suffix, panels in (("A", (("within", "Within-layer angle", "machine − human (°)"),
-                                  ("anisotropy", "Anisotropy", "machine − human (mean cosine)"))),
-                           ("B", (("within_centred", "Within-layer angle, centred", "machine − human (°)"),
-                                  ("local", local_title, local_label)))):
-        fig, axes = plt.subplots(1, 2, figsize=(WIDTH, HEIGHT))
-        for ax, (key, title, ylabel) in zip(axes, panels):
-            domain_panel(ax, x, scores[key], title, ylabel)
-        save(fig, axes, os.path.join(HS_DIR, "within", f"f_within_talk_{suffix}.pdf"))
+    fig, ax = plt.subplots(figsize=(WIDTH * 0.62, HEIGHT))
+    domain_panel(ax, x, scores["within"], "Within-layer angle", "machine − human (°)")
+    save(fig, ax, os.path.join(HS_DIR, "within", "f_within_talk_A.pdf"))
+
+    fig, axes = plt.subplots(1, 3, figsize=(WIDTH * 1.4, HEIGHT))  # wider panels, shown at the same height
+    for ax, (key, title, ylabel) in zip(axes, (("anisotropy", "Anisotropy", "machine − human (mean cosine)"),
+                                                ("within_centred", "Within-layer angle, centred",
+                                                 "machine − human (°)"),
+                                                ("local", local_title, local_label))):
+        domain_panel(ax, x, scores[key], title, ylabel)
+    save(fig, axes, os.path.join(HS_DIR, "within", "f_within_talk_B.pdf"))
 
 
 def across_figures(args: Namespace) -> None:

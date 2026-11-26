@@ -18,12 +18,21 @@ Per token and transition ℓ−1 → ℓ, with z = h^{ℓ−1}, Δ = h^ℓ − h
     perp_norm  = ‖Δ⊥‖
     perp_rel   = ‖Δ⊥‖ / ‖z‖                   (sideways push relative to the length of z, per token)
     delta_norm = ‖Δ‖                          (‖Δ‖² = ‖Δ∥‖² + ‖Δ⊥‖²)
-The angle follows from the split: tan(angle) = ‖Δ⊥‖ / ((1 + α) ‖z‖).
+The angle follows from the split: tan(angle) = ‖Δ⊥‖ / ((1 + α) ‖z‖). Its logarithm is a sum, exact per token where
+1 + α > 0 (the update does not flip z backwards; otherwise the angle exceeds 90° and the log is undefined):
+    log_tan     = log tan(angle) = log_perp − log1p_alpha − log_z
+    log_perp    = log ‖Δ⊥‖          (sideways push)
+    log1p_alpha = log(1 + α)        (growth along z)
+    log_z       = log ‖z‖           (state size)
+Because means are linear, the per-text means (and the machine − human gaps of them) add up the same way, so the gap in
+log_tan splits exactly into the three parts. The log terms use only tokens with 1 + α > 0; flipped = the share of used
+tokens with 1 + α ≤ 0 (left out of the log terms).
 
 Per text, each score is the mean over the used tokens of that transition.
 
 Output: output/hidden_states/across/across_{model}_{dataset}_s{seed}.npz with labels (N,) (0 = human, 1 = machine)
-and one array per score: angle, alpha, par_norm, perp_norm, perp_rel, delta_norm (N, L − 1), index i = transition i → i + 1.
+and one array per score: angle, alpha, par_norm, perp_norm, perp_rel, delta_norm, log_tan, log_perp, log1p_alpha,
+log_z, flipped (N, L − 1), index i = transition i → i + 1.
 
     PYTHONPATH="${BASE_ZMGT}" uv run --project "${BASE_ZERO}" -m src.hs_anal.hs_across --model l8b \
         --dataset drlXDomainLen_wiki_300_tokens
@@ -49,7 +58,8 @@ EPS = 1e-12
 def update_split(h: torch.Tensor) -> dict[str, torch.Tensor]:
     """
     h: (L, T, D) float64, layers 0..L−1. Per token and transition ℓ−1 → ℓ, with z = h^{ℓ−1} and Δ = h^ℓ − z:
-    angle, alpha, par_norm, perp_norm, perp_rel, delta_norm, each (L − 1, T).
+    angle, alpha, par_norm, perp_norm, perp_rel, delta_norm and the log terms log_perp, log1p_alpha, log_z, log_tan
+    (NaN where 1 + α ≤ 0), each (L − 1, T).
     """
     z = h[:-1]
     delta = h[1:] - z
@@ -57,23 +67,49 @@ def update_split(h: torch.Tensor) -> dict[str, torch.Tensor]:
     alpha = (delta * z).sum(dim=-1) / z_norm.pow(2)
     perpendicular = delta - alpha[..., None] * z  # Δ⊥
     cos = (z * h[1:]).sum(dim=-1) / (z_norm * h[1:].norm(dim=-1).clamp_min(EPS))
+    perp_norm = perpendicular.norm(dim=-1)
+    forward = 1 + alpha > 0
+    log_perp = torch.log(perp_norm.clamp_min(EPS))
+    log1p_alpha = torch.where(forward, torch.log1p(alpha.clamp_min(-1 + EPS)), torch.nan)
+    log_z = torch.log(z_norm)
     return {
         "angle": torch.acos(cos.clamp(-1.0, 1.0)),
         "alpha": alpha,
         "par_norm": alpha.abs() * z_norm,
-        "perp_norm": perpendicular.norm(dim=-1),
-        "perp_rel": perpendicular.norm(dim=-1) / z_norm,
+        "perp_norm": perp_norm,
+        "perp_rel": perp_norm / z_norm,
         "delta_norm": delta.norm(dim=-1),
+        "log_tan": log_perp - log1p_alpha - log_z,
+        "log_perp": log_perp,
+        "log1p_alpha": log1p_alpha,
+        "log_z": log_z,
     }
 
 
+LOG_TERMS = ("log_tan", "log_perp", "log1p_alpha", "log_z")
+
+
 def text_scores(h: torch.Tensor) -> dict[str, np.ndarray]:
-    """h: (L, T, D) float64 hidden states of one text -> each score (L − 1,), mean over the used tokens."""
+    """
+    h: (L, T, D) float64 hidden states of one text -> each score (L − 1,), mean over the used tokens (the log terms
+    over the used tokens with 1 + α > 0, so they add up exactly), and flipped, the share of used tokens with 1 + α ≤ 0.
+    """
     n = h.norm(dim=-1)  # (L, T)
     keep = n <= OUTLIER_FACTOR * n.median(dim=1, keepdim=True).values
-    pair = (keep[1:] & keep[:-1]).to(h.dtype)  # token kept at both ℓ−1 and ℓ, (L − 1, T)
-    k = pair.sum(dim=1).clamp_min(1)
-    return {key: ((value * pair).sum(dim=1) / k).cpu().numpy() for key, value in update_split(h).items()}
+    pair = keep[1:] & keep[:-1]  # token kept at both ℓ−1 and ℓ, (L − 1, T)
+    split = update_split(h)
+    forward = pair & torch.isfinite(split["log1p_alpha"])  # used and 1 + α > 0
+
+    def mean(value: torch.Tensor, used: torch.Tensor) -> torch.Tensor:
+        w = used.to(h.dtype)
+        n_used = w.sum(dim=1)
+        total = torch.where(used, value, 0).sum(dim=1)
+        return torch.where(n_used > 0, total / n_used.clamp_min(1), torch.nan)
+
+    out = {key: mean(value, forward if key in LOG_TERMS else pair) for key, value in split.items()}
+    n_pair = pair.sum(dim=1)
+    out["flipped"] = torch.where(n_pair > 0, (pair & ~forward).sum(dim=1) / n_pair.clamp_min(1), torch.nan)
+    return {key: value.cpu().numpy() for key, value in out.items()}
 
 
 def collect(args: Namespace) -> tuple[dict[str, np.ndarray], np.ndarray]:

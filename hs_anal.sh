@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=zmgt_hs_anal_all_mistral
+#SBATCH --job-name=zmgt_hs_anal_all_min
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
-#SBATCH --time=02:00:00
+#SBATCH --time=02:30:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=30GB
 #SBATCH --partition=gpu,nmes_gpu,interruptible_gpu
@@ -32,7 +32,7 @@ fi
 
 nvidia-smi
 
-MODEL="m8b"
+MODEL="m8b" # m8b q8b l8b
 DATASETS=(
     "drlXDomainLen_wiki_300_tokens"
     "drlXDomainLen_academic_300_tokens"

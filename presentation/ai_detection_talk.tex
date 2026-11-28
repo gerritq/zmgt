@@ -12,7 +12,7 @@
 \usepackage{graphicx}
 % figures/: static images; ../output/...: figures made by the repo's scripts, used as they are (compile from the repo)
 \graphicspath{{figures/}{../output/hidden_states/norms/}{../output/hidden_states/within/}{../output/hidden_states/across/}
-  {../output/hidden_states/surprisal/}{../output/time_space/}}
+  {../output/hidden_states/surprisal/}{../output/hidden_states/attn/}{../output/time_space/}}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc}
 \usepackage{pgfplots}
@@ -691,14 +691,15 @@
 % ---------------------------------------------------------------
 \begin{frame}{JAS \,|\, Analysis: Within-Layer -- AI Tokens Are Closer}
   \centering
-  \includegraphics[width=\textwidth,height=3.65cm,keepaspectratio]{f_within_talk_A.pdf}\\
-  {\tiny Machine $-$ human gap per layer, Llama-3.1-8B, four DetectRL-X domains (300 texts each); grey band: layers 4--15.}
+  \includegraphics[width=\textwidth,height=3.3cm,keepaspectratio]{f_within_talk_A.pdf}\\
+  {\tiny Machine $-$ human gap per layer against relative depth (layer / number of layers), four DetectRL-X domains
+  (300 texts each); grey band: early-to-middle layers (relative depth 0.13--0.47).}
   \vspace{0.05cm}
   \raggedright\footnotesize
   \begin{itemize}\setlength{\itemsep}{1pt}
-    \item In layers 4--15, adjacent AI tokens are \textbf{1--1.7$^\circ$ closer} on average (up to 2.4$^\circ$), in
-          \textbf{all four domains}.
-    \item Outside this band the gap is small and changes sign across domains.
+    \item In early-to-middle layers, adjacent AI tokens are \textbf{closer in all three models and all four domains}:
+          0.7--1.8$^\circ$ on average per domain (up to 3.1$^\circ$).
+    \item Qwen keeps the gap into its upper layers; in Llama and Ministral it fades after the band.
   \end{itemize}
   \begin{takeaway}
     In early-to-middle layers, AI tokens are closer to their neighbours. \textbf{Why?}
@@ -775,15 +776,15 @@
 % ---------------------------------------------------------------
 \begin{frame}{JAS \,|\, Analysis: Across-Layer -- Layers Rotate AI Tokens Less}
   \centering
-  \includegraphics[width=\textwidth,height=3.65cm,keepaspectratio]{f_across_talk_A.pdf}\\
-  {\tiny Angle of the same token between consecutive layers: machine $-$ human gap per layer, four DetectRL-X domains;
-  grey band: layers 4--15.}
+  \includegraphics[width=\textwidth,height=3.3cm,keepaspectratio]{f_across_talk_A.pdf}\\
+  {\tiny Angle of the same token between consecutive layers: machine $-$ human gap against relative depth (layer /
+  number of layers), four DetectRL-X domains; grey band: early-to-middle layers (relative depth 0.13--0.47).}
   \vspace{0.05cm}
   \raggedright\footnotesize
   \begin{itemize}\setlength{\itemsep}{1pt}
-    \item In layers 4--15, layers rotate AI tokens \textbf{1.2--2.5$^\circ$ less} on average (up to 3.4$^\circ$),
-          in \textbf{all four domains}.
-    \item The gap is largest around \textbf{layers 5--7} and shrinks in the upper layers.
+    \item In early-to-middle layers, layers rotate AI tokens \textbf{less in all three models and all four domains}:
+          0.8--2.5$^\circ$ on average per domain (up to 3.4$^\circ$).
+    \item The gap stays negative in the upper layers too, except for News in Llama and Ministral.
   \end{itemize}
   \begin{takeaway}
     Across layers, the hidden state of an AI token turns less from one layer to the next. \textbf{Why?}
@@ -852,6 +853,68 @@
   \begin{takeaway}
     \textbf{Finding 2:} layers rotate AI tokens less because three effects point the same way -- larger states,
     less shrinking and a smaller sideways push.
+  \end{takeaway}
+\end{frame}
+
+% ---------------------------------------------------------------
+\begin{frame}{JAS \,|\, Analysis: Across-Layer -- How Much Each Factor Explains}
+  \centering
+  \vspace{-4pt}
+  {\small $\displaystyle \Delta\log\tan\varphi \;=\; \Delta\log\lVert\Delta_\perp\rVert \;-\; \Delta\log(1+\alpha)
+  \;-\; \Delta\log\lVert z\rVert$ \quad {\footnotesize($\Delta$ = machine $-$ human, exact per token)}}\\[2pt]
+  \includegraphics[width=\textwidth,height=3.15cm,keepaspectratio]{f_across_talk_C.pdf}\\
+  {\tiny Llama-3.1-8B, mean over four DetectRL-X domains; bars stack the three parts (below zero: they make the AI
+  angle smaller), the line is their sum; grey band: layers 4--15.}
+  \vspace{0.05cm}
+  \raggedright\footnotesize
+  \begin{itemize}\setlength{\itemsep}{1pt}
+    \item In layers 4--15, \textbf{all three parts} lower the AI angle: state size \textbf{41\%}, less shrinking
+          \textbf{30\%}, smaller sideways push \textbf{29\%} of the gap.
+    \item In layers $\sim$15--27, AI tokens get a \emph{larger} sideways push, but their larger states still keep the
+          angle smaller.
+  \end{itemize}
+  \begin{takeaway}
+    No single factor explains the smaller AI rotation: larger states account for about 40\%, growth and sideways push
+    for about 30\% each.
+  \end{takeaway}
+\end{frame}
+
+% ---------------------------------------------------------------
+\begin{frame}{JAS \,|\, Analysis: Does Attention Line Up with AI Tokens?}
+  \centering
+  \includegraphics[width=\textwidth,height=3.15cm,keepaspectratio]{f_attn_talk_A.pdf}\\
+  {\tiny Machine $-$ human angle to each head's main direction (top singular vector), averaged over heads and four
+  DetectRL-X domains. Input: normed token vs.\ what W$_V$ / the OV circuit W$_O$W$_V$ reads most; output: residual
+  token vs.\ where the head writes most. Grey band: early-to-middle layers.}
+  \vspace{0.05cm}
+  \raggedright\footnotesize
+  \begin{itemize}\setlength{\itemsep}{1pt}
+    \item \textbf{Reading side:} no difference -- AI tokens are \emph{not} more aligned with what W$_V$ or the OV
+          circuit reads most ($|$gap$|<0.02^\circ$ in all three models).
+    \item \textbf{Writing side:} in early-to-middle layers, AI tokens lie closer to where heads write most
+          ($-0.14$ to $-0.33^\circ$ on average, up to $-0.6^\circ$), in all three models.
+  \end{itemize}
+  \begin{takeaway}
+    Attention does not \emph{read} AI tokens differently, but its main writes run slightly more \emph{along} them --
+    consistent with more stretching and less turning.
+  \end{takeaway}
+\end{frame}
+
+% ---------------------------------------------------------------
+\begin{frame}{JAS \,|\, Analysis: Which Heads Write Along AI Tokens?}
+  \centering
+  \includegraphics[width=\textwidth,height=3.6cm,keepaspectratio]{f_attn_talk_B.pdf}\\
+  {\tiny Llama-3.1-8B: effect size of the OV output angle per layer and attention head (mean over four domains);
+  heads sorted within each layer; dashed lines: layers 4--15.}
+  \vspace{0.05cm}
+  \raggedright\footnotesize
+  \begin{itemize}\setlength{\itemsep}{1pt}
+    \item In layers 4--15, \textbf{70\% of heads} write closer to AI tokens, and \textbf{55\%} with $d<-0.5$; only
+          11\% clearly go the other way.
+    \item Outside this band the heads are mixed, matching where the across-layer gap fades.
+  \end{itemize}
+  \begin{takeaway}
+    A broad shift across most heads, not a few special ones.
   \end{takeaway}
 \end{frame}
 

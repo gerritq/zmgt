@@ -5,20 +5,28 @@ the machine − human gap of the per-text means (unpaired): one faded line per d
 the CI combines the domains' standard errors). The grey band marks BAND (the early-to-middle layers).
 
 output/hidden_states/within/ (src.hs_anal.hs_within)
-    f_within_talk_A.pdf     within-layer angle (°), one panel
+    f_within_talk_A.pdf     within-layer angle (°), one panel per model in MODELS, x = relative depth
     f_within_talk_B.pdf     anisotropy (mean pairwise cosine) | within-layer angle on centred states (°) |
                             neighbours vs. all pairs: hs_within's
                             within_cos − anisotropy (cosine) where the file has it, else the shuffle test of
                             src.geometric_metrics.desc3 (L = A_shuffled − A_original, degrees)
 output/hidden_states/across/ (src.hs_anal.hs_across; ‖z‖ from src.hs_anal.norm_anal)
-    f_across_talk_A.pdf     across-layer angle (°), one panel
+    f_across_talk_A.pdf     across-layer angle (°), one panel per model in MODELS, x = relative depth
     f_across_talk_B.pdf     the factors of tan φ = ‖Δ⊥‖ / ((1 + α) ‖z‖): ‖z‖ (% of human) | α | ‖Δ⊥‖ / ‖z‖ (% of human)
+    f_across_talk_C.pdf     --model only: the exact log split of the across-angle gap per layer, stacked bars
+                            Δ log tan φ = Δ log ‖Δ⊥‖ − Δ log(1 + α) − Δ log ‖z‖ (each part averaged over the domains),
+                            the total as a line (±95% CI)
 output/hidden_states/surprisal/ (src.hs_anal.hs_surprisal)
     f_surprisal_talk.pdf    within | across angle gap (°) per surprisal decile, on SURPRISAL_LAYERS. Per domain, deciles
                             of the pooled token surprisal (both groups); per text, the mean angle of its tokens in each
                             decile (each token's angle averaged over the layers first); then the gap of the text means
     f_harp_talk.pdf         within | across angle gap (°) per W_U subspace (full, semantic, reasoning), each the average
                             over the domains (±95% CI)
+output/hidden_states/attn/ (src.hs_anal.hs_attn)
+    f_attn_talk_A.pdf       W_V input | OV input | OV output angle: machine − human gap per layer, averaged over heads
+                            (per text) and domains; one line per model in MODELS (±95% CI), x = relative depth
+    f_attn_talk_B.pdf       --model only: Cohen's d of the OV output angle per layer (rows) × attention head (columns,
+                            sorted within each layer), mean over the domains; diverging scale centred at 0
 output/time_space/ (src.baseline_time.run_time)
     f_time_space_talk.pdf   latency per text (ms, mean ± std) | peak GPU memory (GB), one bar per detector
 
@@ -56,6 +64,12 @@ DETECTORS = {  # run_time model name -> label
 INK, MUTED, GRID, BAND_COLOR = "#263238", "#7F8C8D", "#E2E6EA", "#F1F3F5"
 ACCENT, BAR = "#1DB954", "#B0BEC5"  # JAS bar (the talk's green) / other detectors
 BAND = (4, 15)
+MODELS = {"l8b": "Llama-3.1-8B", "q8b": "Qwen3-8B", "m8b": "Ministral-8B"}  # model key -> label, for the A figures
+
+
+def band_for(n_layers: int) -> tuple[int, int]:
+    """BAND (set for a 32-layer model) at the same relative depth for a model with n_layers transformer layers."""
+    return round(BAND[0] * n_layers / 32), round(BAND[1] * n_layers / 32)
 SURPRISAL_LAYERS = range(4, 16)  # layers ℓ averaged in the surprisal figure (within: h^ℓ; across: step ℓ−1 → ℓ)
 N_BINS = 10
 WIDTH, HEIGHT = 6.2, 1.95  # inches, about the size a figure is shown at on a slide
@@ -81,9 +95,10 @@ def auc(values: np.ndarray, labels: np.ndarray) -> tuple[np.ndarray, np.ndarray]
     return a, np.zeros_like(a)
 
 
-def style(ax: plt.Axes, title: str, ylabel: str, xlabel: str, band: bool = True) -> None:
-    if band:
-        ax.axvspan(*BAND, color=BAND_COLOR, zorder=0, linewidth=0)
+def style(ax: plt.Axes, title: str, ylabel: str, xlabel: str, band: bool | tuple = True) -> None:
+    """band: True = BAND, a (first, last) layer tuple = that band, False = none."""
+    if band is not False:
+        ax.axvspan(*(BAND if band is True else band), color=BAND_COLOR, zorder=0, linewidth=0)
     ax.set_title(title, fontsize=8.5, color=INK, pad=3)
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
@@ -95,7 +110,7 @@ def style(ax: plt.Axes, title: str, ylabel: str, xlabel: str, band: bool = True)
 
 def domain_panel(ax: plt.Axes, x: np.ndarray, gaps: dict[str, tuple[np.ndarray, np.ndarray]], title: str,
                  ylabel: str, xlabel: str = "layer (0 = embeddings)", reference: float = 0.0,
-                 band: bool = True) -> None:
+                 band: bool | tuple = True) -> None:
     """One faded line per domain and their average (black, ±95% CI) against x."""
     style(ax, title, ylabel, xlabel, band)
     ax.axhline(reference, color=MUTED, linewidth=0.8, zorder=1)
@@ -159,9 +174,6 @@ def within_figures(args: Namespace) -> None:
                                 else ("Shuffled − original angle", "machine − human (°)"))
     print(f"neighbour panel ({unit}) for: " + ", ".join(scores["local"]))
     x = np.arange(len(scores["within"]["wiki"][0]))
-    fig, ax = plt.subplots(figsize=(WIDTH * 0.62, HEIGHT))
-    domain_panel(ax, x, scores["within"], "Within-layer angle", "machine − human (°)")
-    save(fig, ax, os.path.join(HS_DIR, "within", "f_within_talk_A.pdf"))
 
     fig, axes = plt.subplots(1, 3, figsize=(WIDTH * 1.4, HEIGHT))  # wider panels, shown at the same height
     for ax, (key, title, ylabel) in zip(axes, (("anisotropy", "Anisotropy", "machine − human (mean cosine)"),
@@ -170,6 +182,123 @@ def within_figures(args: Namespace) -> None:
                                                 ("local", local_title, local_label))):
         domain_panel(ax, x, scores[key], title, ylabel)
     save(fig, axes, os.path.join(HS_DIR, "within", "f_within_talk_B.pdf"))
+
+
+def model_figure(kind: str, args: Namespace) -> None:
+    """One panel per model in MODELS: the within-layer (kind = "within") or across-layer (kind = "across") angle gap
+    per layer against relative depth ℓ / L (L = the model's transformer layers; within: 0 = embeddings; across: the
+    step ℓ−1 → ℓ at ℓ / L), the domains faded and their average; grey band at the same relative depth as BAND in a
+    32-layer model. Shared y-axis."""
+    key, first = ("within", 0) if kind == "within" else ("angle", 1)
+    xlabel = "relative depth (layer / L)"
+    fig, axes = plt.subplots(1, len(MODELS), figsize=(WIDTH * 1.4, HEIGHT), sharey=True)
+    for ax, (model, label) in zip(axes, MODELS.items()):
+        gaps = {}
+        for name in DATASETS:
+            d = np.load(path_of(kind, name, Namespace(model=model, seed=args.seed)))
+            gaps[name] = gap(np.degrees(d[key]), d["labels"])
+        n = len(next(iter(gaps.values()))[0])
+        n_layers = n + first  # within: layers 0..L−1 (L entries); across: steps into 1..L−1 (L − 1 entries)
+        domain_panel(ax, np.arange(first, first + n) / n_layers, gaps, label,
+                     "machine − human (°)" if ax is axes[0] else "", xlabel, band=(BAND[0] / 32, BAND[1] / 32))
+        ax.set_xlim(0, 1)
+    save(fig, axes, os.path.join(HS_DIR, kind, f"f_{kind}_talk_A.pdf"))
+
+
+LOG_PARTS = (  # (key in hs_across, sign in the sum, label, colour); colours validated as a set (dataviz validator)
+    ("log_z", -1, r"state size: $-\Delta\log\|z\|$", "#1b9e77"),
+    ("log1p_alpha", -1, r"growth along $z$: $-\Delta\log(1+\alpha)$", "#4b4bc4"),
+    ("log_perp", 1, r"sideways push: $\Delta\log\|\Delta_\perp\|$", "#e07b2c"),
+)
+
+
+def log_split_figure(args: Namespace) -> None:
+    """Stacked machine − human contributions to the gap in log tan φ per layer (--model), negatives stacked downwards
+    and positives upwards, with the total gap as a line (±95% CI); domains averaged."""
+    parts, totals = {key: [] for key, *_ in LOG_PARTS}, []
+    for name in DATASETS:
+        d = np.load(path_of("across", name, args))
+        for key, sign, *_ in LOG_PARTS:
+            parts[key].append(sign * gap(d[key], d["labels"])[0])
+        totals.append(gap(d["log_tan"], d["labels"]))
+    mean = {key: np.mean(value, axis=0) for key, value in parts.items()}
+    total = np.mean([g for g, _ in totals], axis=0)
+    se = np.sqrt(np.sum([e ** 2 for _, e in totals], axis=0)) / len(totals)
+    assert np.allclose(sum(mean.values()), total, atol=1e-9), "the parts must add up to the total"
+    x = np.arange(1, len(total) + 1)  # step ℓ−1 → ℓ at ℓ
+    fig, ax = plt.subplots(figsize=(WIDTH * 1.1, HEIGHT * 1.1))
+    style(ax, f"Across-layer angle gap ({MODELS.get(args.model, args.model)})",
+          "machine − human\n(log tan φ)", "layer ℓ (step ℓ−1 → ℓ)", band=band_for(len(total) + 1))
+    ax.axhline(0, color=MUTED, linewidth=0.8, zorder=1)
+    up, down = np.zeros_like(total), np.zeros_like(total)
+    for key, _, label, color in LOG_PARTS:
+        v = mean[key]
+        base = np.where(v >= 0, up, down)
+        ax.bar(x, v, bottom=base, width=0.78, color=color, label=label, zorder=2, linewidth=0)
+        up, down = up + np.clip(v, 0, None), down + np.clip(v, None, 0)
+    ax.fill_between(x, total - 1.96 * se, total + 1.96 * se, color=INK, alpha=0.15, linewidth=0, zorder=3)
+    ax.plot(x, total, color=INK, linewidth=1.6, marker="o", markersize=2.5, label="total gap (±95% CI)", zorder=4)
+    ax.set_xlim(x[0] - 0.6, x[-1] + 0.6)
+    save(fig, ax, os.path.join(HS_DIR, "across", "f_across_talk_C.pdf"))
+
+
+MODEL_COLORS = {"l8b": "#008300", "q8b": "#6250d6", "m8b": "#d55181"}  # validated as a set (dataviz validator)
+ATTN_PANELS = (("wv_angle", "W$_V$ input"), ("ov_in_angle", "OV input"), ("ov_out_angle", "OV output"))
+
+
+def attn_model_figure(args: Namespace) -> None:
+    """Per measure in ATTN_PANELS, the machine − human angle gap (°) per layer, each text's angle averaged over heads
+    first; one line per model (domains averaged, ±95% CI) against relative depth (transformer layer / L)."""
+    fig, axes = plt.subplots(1, len(ATTN_PANELS), figsize=(WIDTH * 1.4, HEIGHT), sharey=True)
+    for ax, (key, title) in zip(axes, ATTN_PANELS):
+        style(ax, title, "machine − human (°)" if ax is axes[0] else "", "relative depth (layer / L)",
+              band=(BAND[0] / 32, BAND[1] / 32))
+        ax.axhline(0, color=MUTED, linewidth=0.8, zorder=1)
+        for model, label in MODELS.items():
+            gaps = []
+            for name in DATASETS:
+                d = np.load(path_of("attn", name, Namespace(model=model, seed=args.seed)))
+                gaps.append(gap(np.degrees(np.nanmean(d[key], axis=2)), d["labels"]))  # heads averaged per text
+            mean = np.mean([g for g, _ in gaps], axis=0)
+            se = np.sqrt(np.sum([e ** 2 for _, e in gaps], axis=0)) / len(gaps)
+            x = np.arange(1, len(mean) + 1) / len(mean)  # transformer layer i + 1 of L
+            color = MODEL_COLORS[model]
+            ax.fill_between(x, mean - 1.96 * se, mean + 1.96 * se, color=color, alpha=0.15, linewidth=0, zorder=2)
+            ax.plot(x, mean, color=color, linewidth=1.6, label=label, zorder=3)
+        ax.set_xlim(0, 1)
+    save(fig, axes, os.path.join(HS_DIR, "attn", "f_attn_talk_A.pdf"))
+
+
+def attn_head_figure(args: Namespace) -> None:
+    """Cohen's d (machine − human) of the OV output angle per layer × attention head for --model, the mean over the
+    domains; heads sorted within each layer (their numbers do not correspond across layers)."""
+    ds = []
+    for name in DATASETS:
+        d = np.load(path_of("attn", name, args))
+        a, y = np.degrees(d["ov_out_angle"]), d["labels"]  # (N, L, H)
+        h, m = a[y == 0], a[y == 1]
+        pooled = np.sqrt((np.nanvar(h, 0, ddof=1) + np.nanvar(m, 0, ddof=1)) / 2)
+        ds.append((np.nanmean(m, 0) - np.nanmean(h, 0)) / np.where(pooled > 0, pooled, np.nan))
+    effect = np.sort(np.nanmean(ds, axis=0), axis=1)  # (L, H), each layer's heads sorted
+    lim = np.ceil(np.nanmax(np.abs(effect)) * 2) / 2
+    from matplotlib.colors import LinearSegmentedColormap
+    cmap = LinearSegmentedColormap.from_list("diverging", ["#2166ac", "#f2f2f2", "#b2182b"])  # neutral grey midpoint
+    fig, ax = plt.subplots(figsize=(WIDTH * 1.1, HEIGHT * 1.15))
+    image = ax.imshow(effect, aspect="auto", cmap=cmap, vmin=-lim, vmax=lim, origin="lower",
+                      extent=(0.5, effect.shape[1] + 0.5, 0.5, effect.shape[0] + 0.5), interpolation="nearest")
+    band = band_for(effect.shape[0])  # rows = transformer layers 1..L
+    for edge in (band[0] - 0.5, band[1] + 0.5):
+        ax.axhline(edge, color=INK, linewidth=0.7, linestyle="--")
+    ax.set_xlabel("attention heads, sorted within each layer")
+    ax.set_ylabel("transformer layer")
+    ax.set_xticks([])
+    ax.set_title(f"OV output angle ({MODELS.get(args.model, args.model)})", fontsize=8.5, color=INK, pad=3)
+    bar = fig.colorbar(image, ax=ax, fraction=0.03, pad=0.02)
+    bar.set_label("Cohen's d (machine − human)\nblue: AI closer to the head's write", fontsize=6.5)
+    bar.ax.tick_params(labelsize=6)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    save(fig, ax, os.path.join(HS_DIR, "attn", "f_attn_talk_B.pdf"), legend=False)
 
 
 def across_figures(args: Namespace) -> None:
@@ -186,9 +315,6 @@ def across_figures(args: Namespace) -> None:
     x = np.arange(1, len(scores["angle"]["wiki"][0]) + 1)  # step ℓ−1 → ℓ at ℓ
     xlabel = "layer ℓ (step ℓ−1 → ℓ)"
 
-    fig, ax = plt.subplots(figsize=(WIDTH * 0.62, HEIGHT))
-    domain_panel(ax, x, scores["angle"], "Across-layer angle", "machine − human (°)", xlabel)
-    save(fig, ax, os.path.join(HS_DIR, "across", "f_across_talk_A.pdf"))
 
     fig, axes = plt.subplots(1, 3, figsize=(WIDTH, HEIGHT))
     domain_panel(axes[0], x, scores["z"], r"State size $\|z\|$", "machine − human (%)", xlabel)
@@ -295,6 +421,11 @@ def main() -> None:
                          "axes.linewidth": 0.6, "xtick.major.width": 0.6, "ytick.major.width": 0.6})
     within_figures(args)
     across_figures(args)
+    model_figure("within", args)
+    model_figure("across", args)
+    log_split_figure(args)
+    attn_model_figure(args)
+    attn_head_figure(args)
     surprisal_figure(args)
     harp_figure(args)
     time_space_figure(args)
